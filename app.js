@@ -1,17 +1,17 @@
-/* ─── Sea Lamp PWA — app.js v1.1 ─── */
-/* Step-by-step wizard: detect → connect AP → pick WiFi → reconnect → controls */
+/* ─── Sea Lamp PWA — app.js v1.2 ─── */
+/* Pages: 0 (auto-detect) → 1 (setup instructions) → 4 (controls) */
+/* Setup WiFi is done on the lamp's own page at 4.3.2.1 (HTTP, in browser). */
+/* The PWA (HTTPS) cannot fetch HTTP endpoints — mixed content blocked by Chrome. */
 
 'use strict';
 
-const AP_BASE   = 'http://4.3.2.1';
 const MDNS_HOST = 'http://seazencity.local';
 const LS_KEY    = 'sealamp_host';
 
-let lampHost = '';   // e.g. "seazencity.local" or "192.168.1.73"
+let lampHost = '';
 let lampOn   = false;
 let lampBri  = 128;
 let pollTimer = null;
-let chosenSSID = '';
 
 /* ── Helpers ── */
 function $(id) { return document.getElementById(id); }
@@ -56,197 +56,46 @@ async function initDetect() {
     return connectLamp('seazencity.local', info);
   } catch {}
 
-  // 3. AP
-  $('p0status').textContent = 'Checking access point…';
-  try {
-    await fetchJ(AP_BASE + '/json/info', { timeout: 2500 });
-    return goPage2();
-  } catch {}
-
-  // 4. Nothing found
+  // 3. Not found → setup page
   goPage1();
 }
 
-/* ── Page 1: Connect to lamp WiFi ── */
+/* ── Page 1: Setup instructions ── */
 function goPage1() {
   showPage(1);
-  $('p1status').textContent = '';
-  $('p1fallback').classList.add('hidden');
-  startApPolling();
+  $('p1searching').classList.add('hidden');
+  $('p1notfound').classList.add('hidden');
+  $('p1ipblock').classList.add('hidden');
 }
 
-function startApPolling() {
-  pollTimer = setInterval(async () => {
-    try {
-      await fetchJ(AP_BASE + '/json/info', { timeout: 2000 });
-      goPage2();
-    } catch {}
-  }, 2500);
-}
+async function findLamp() {
+  const searchEl = $('p1searching');
+  const notFound = $('p1notfound');
+  const ipBlock  = $('p1ipblock');
 
-async function checkApManually() {
-  const btn = $('btnWifi1');
-  const status = $('p1status');
-  btn.disabled = true;
-  btn.textContent = 'Checking…';
-  status.textContent = '';
+  searchEl.classList.remove('hidden');
+  notFound.classList.add('hidden');
+  ipBlock.classList.add('hidden');
 
+  // Try mDNS
   try {
-    await fetchJ(AP_BASE + '/json/info', { timeout: 3000 });
-    goPage2();
-  } catch {
-    btn.disabled = false;
-    btn.textContent = "I've connected";
-    status.textContent = 'Could not reach the lamp. Make sure you\'re connected to seazencity WiFi.';
-    // Show direct link fallback
-    $('p1fallback').classList.remove('hidden');
-  }
-}
+    const info = await fetchJ(MDNS_HOST + '/json/info', { timeout: 4000 });
+    return connectLamp('seazencity.local', info);
+  } catch {}
 
-/* ── Page 2: Pick WiFi ── */
-async function goPage2() {
-  showPage(2);
-  $('ssidInput').value = '';
-  $('pskInput').value = '';
-  chosenSSID = '';
-  await scanNetworks();
-}
-
-async function scanNetworks() {
-  const listEl = $('wifiList');
-  listEl.innerHTML = '<p class="muted small">Scanning…</p>';
-
-  // Kick off scan
-  try { await fetchJ(AP_BASE + '/json/net', { timeout: 3000 }); } catch {}
-
-  // Poll for results (up to 8 tries, 1.5s apart)
-  let nets = [];
-  for (let i = 0; i < 8; i++) {
-    await new Promise(r => setTimeout(r, 1500));
+  // Try saved host if different
+  const saved = localStorage.getItem(LS_KEY);
+  if (saved && saved !== 'seazencity.local') {
     try {
-      const data = await fetchJ(AP_BASE + '/json/net', { timeout: 3000 });
-      if (data.networks && data.networks.length > 0) {
-        nets = data.networks;
-        break;
-      }
+      const info = await fetchJ('http://' + saved + '/json/info', { timeout: 3000 });
+      return connectLamp(saved, info);
     } catch {}
   }
 
-  if (!nets.length) {
-    listEl.innerHTML = '<p class="muted small">No networks found. <a href="#" id="btnRescan2">Try again</a></p>';
-    const r = $('btnRescan2');
-    if (r) r.addEventListener('click', e => { e.preventDefault(); scanNetworks(); });
-    return;
-  }
-
-  // Sort by signal strength (strongest first), deduplicate SSIDs
-  nets.sort((a, b) => b.rssi - a.rssi);
-  const seen = new Set();
-  const unique = nets.filter(n => {
-    if (!n.ssid || seen.has(n.ssid)) return false;
-    seen.add(n.ssid);
-    return true;
-  });
-
-  // Render list
-  listEl.innerHTML = '';
-  unique.forEach((n, i) => {
-    const el = document.createElement('div');
-    el.className = 'wifi-item' + (i === 0 ? ' selected' : '');
-    el.textContent = n.ssid;
-    el.addEventListener('click', () => selectNetwork(n.ssid, el));
-    listEl.appendChild(el);
-  });
-
-  // Pre-select strongest
-  if (unique.length) selectNetwork(unique[0].ssid, listEl.firstChild);
-}
-
-function selectNetwork(ssid, el) {
-  chosenSSID = ssid;
-  $('ssidInput').value = ssid;
-  $('pskInput').value = '';
-  document.querySelectorAll('.wifi-item').forEach(e => e.classList.remove('selected'));
-  if (el) el.classList.add('selected');
-}
-
-async function submitWifi() {
-  const ssid = $('ssidInput').value.trim();
-  const psk  = $('pskInput').value;
-  if (!ssid) return;
-
-  const btn = $('btnConnect');
-  btn.textContent = 'Saving…';
-  btn.disabled = true;
-
-  try {
-    // Save WiFi credentials
-    await fetch(AP_BASE + '/json/cfg', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nw: { ins: [{ ssid, psk }] }, id: { frun: false } })
-    });
-
-    // Small delay then reboot
-    await new Promise(r => setTimeout(r, 500));
-    try {
-      await fetch(AP_BASE + '/json/state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rb: true })
-      });
-    } catch {} // lamp may drop connection before responding
-
-    chosenSSID = ssid;
-    goPage3();
-  } catch (e) {
-    btn.textContent = 'Connect';
-    btn.disabled = false;
-    alert('Could not save WiFi settings. Make sure you\'re connected to seazencity.');
-  }
-}
-
-/* ── Page 3: Reconnect to home WiFi ── */
-function goPage3() {
-  showPage(3);
-  $('p3ssid').textContent = chosenSSID || 'your WiFi';
-  const s2 = $('p3ssid2');
-  if (s2) s2.textContent = chosenSSID || 'your home WiFi';
-  $('p3status').textContent = '';
-  $('p3fallback').classList.add('hidden');
-
-  let elapsed = 0;
-  pollTimer = setInterval(async () => {
-    elapsed += 2;
-    try {
-      const info = await fetchJ(MDNS_HOST + '/json/info', { timeout: 2500 });
-      connectLamp('seazencity.local', info);
-      return;
-    } catch {}
-
-    if (elapsed >= 15) {
-      $('p3status').textContent = 'Taking longer than expected…';
-      $('p3fallback').classList.remove('hidden');
-    }
-  }, 2000);
-}
-
-async function checkLampManually() {
-  const btn = $('btnWifi3');
-  const status = $('p3status');
-  btn.disabled = true;
-  btn.textContent = 'Checking…';
-  status.textContent = '';
-
-  try {
-    const info = await fetchJ(MDNS_HOST + '/json/info', { timeout: 3000 });
-    connectLamp('seazencity.local', info);
-  } catch {
-    btn.disabled = false;
-    btn.textContent = "I've reconnected";
-    status.textContent = 'Lamp not found yet. Make sure your phone is on the same WiFi as the lamp.';
-    $('p3fallback').classList.remove('hidden');
-  }
+  // Not found
+  searchEl.classList.add('hidden');
+  notFound.classList.remove('hidden');
+  ipBlock.classList.remove('hidden');
 }
 
 async function useManualIp() {
@@ -282,8 +131,7 @@ async function syncState() {
 }
 
 function updatePowerUI() {
-  const btn = $('btnPower');
-  btn.classList.toggle('on', lampOn);
+  $('btnPower').classList.toggle('on', lampOn);
   $('statusDot').classList.toggle('on', lampOn);
 }
 
@@ -319,18 +167,10 @@ function disconnect() {
 }
 
 /* ── Event listeners ── */
-$('btnWifi1').addEventListener('click', checkApManually);
-$('btnWifi3').addEventListener('click', checkLampManually);
-$('btnConnect').addEventListener('click', submitWifi);
-$('btnRescan').addEventListener('click', e => { e.preventDefault(); scanNetworks(); });
+$('btnFindLamp').addEventListener('click', findLamp);
 $('btnUseIp').addEventListener('click', useManualIp);
 $('btnPower').addEventListener('click', togglePower);
 $('btnDisconnect').addEventListener('click', e => { e.preventDefault(); disconnect(); });
-
-$('btnEye').addEventListener('click', () => {
-  const inp = $('pskInput');
-  inp.type = inp.type === 'password' ? 'text' : 'password';
-});
 
 $('briSlider').addEventListener('change', () => {
   sendBri($('briSlider').value);

@@ -1,5 +1,5 @@
 /* ─── Sea Lamp PWA — sw.js ─── */
-const CACHE = 'sealamp-pwa-v3';
+const CACHE = 'sealamp-pwa-v4';
 const ASSETS = [
   './',
   './index.html',

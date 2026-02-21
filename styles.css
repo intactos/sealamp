@@ -253,6 +253,32 @@ input[type=range]::-webkit-slider-thumb{
   border-top:1px solid rgba(255,255,255,.08);
   margin:14px 0;
 }
+
+/* ── Step list ── */
+.step-list{
+  margin:12px 0 16px;
+}
+.step{
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+  margin-bottom:12px;
+  font-size:.9rem;
+  line-height:1.4;
+}
+.step-num{
+  flex-shrink:0;
+  width:24px;height:24px;
+  border-radius:50%;
+  background:var(--accent);
+  color:#000;
+  font-weight:700;
+  font-size:.8rem;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
 .footer{
   margin-top:24px;
   display:flex;
@@ -262,18 +288,6 @@ input[type=range]::-webkit-slider-thumb{
 .footer a{text-decoration:none;color:var(--muted)}
 
 a{color:var(--accent);text-decoration:none}
-
-/* ── Instructions list ── */
-.instructions{
-  text-align:left;
-  margin:12px 0;
-  padding-left:22px;
-}
-.instructions li{
-  margin:6px 0;
-  font-size:.95rem;
-  line-height:1.4;
-}
 
 /* ── Pulse animation (waiting states) ── */
 .pulse-ring{
