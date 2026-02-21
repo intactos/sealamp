@@ -277,15 +277,22 @@ function disconnect() {
   initDetect();
 }
 
-/* ── Open WiFi settings helper ── */
-function openWifiSettings() {
-  // Try Android intent for WiFi settings
-  window.location.href = 'intent:#Intent;action=android.settings.WIFI_SETTINGS;end';
+/* ── WiFi settings nudge ── */
+function nudgeWifi(btn, msg) {
+  // Button acts as acknowledgment — user switches WiFi manually.
+  // Show a reminder hint on tap.
+  btn.textContent = msg;
+  btn.classList.remove('primary');
+  setTimeout(() => {
+    btn.classList.add('primary');
+    if (btn.id === 'btnWifi1') btn.textContent = "I've connected to seazencity";
+    else btn.textContent = "I've switched back to my WiFi";
+  }, 3000);
 }
 
 /* ── Event listeners ── */
-$('btnWifi1').addEventListener('click', openWifiSettings);
-$('btnWifi3').addEventListener('click', openWifiSettings);
+$('btnWifi1').addEventListener('click', () => nudgeWifi($('btnWifi1'), '↑ Swipe down → tap WiFi'));
+$('btnWifi3').addEventListener('click', () => nudgeWifi($('btnWifi3'), '↑ Swipe down → tap WiFi'));
 $('btnConnect').addEventListener('click', submitWifi);
 $('btnRescan').addEventListener('click', e => { e.preventDefault(); scanNetworks(); });
 $('btnUseIp').addEventListener('click', useManualIp);
