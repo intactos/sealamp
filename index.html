@@ -28,10 +28,19 @@
       <div class="steps">Step <b>1</b> of 3</div>
       <div class="card">
         <h2>Connect to your lamp</h2>
-        <p>Swipe down from the top of your screen, tap the <b>WiFi</b> icon, and connect to <b>seazencity</b>. No password needed.</p>
-        <p>Then come back here — it will continue automatically.</p>
-        <button class="btn primary" id="btnWifi1">I've connected to seazencity</button>
-        <p class="muted small pulse-text" id="p1status">Waiting for connection…</p>
+        <ol class="instructions">
+          <li>Swipe down from the top of your screen</li>
+          <li>Tap the <b>WiFi</b> icon</li>
+          <li>Connect to <b>seazencity</b> (no password)</li>
+          <li>Come back here</li>
+        </ol>
+        <button class="btn primary" id="btnWifi1">I've connected</button>
+        <p class="muted small" id="p1status"></p>
+        <div id="p1fallback" class="hidden">
+          <div class="sep"></div>
+          <p class="muted small">If the button doesn’t work, open this link directly in your browser after connecting to seazencity WiFi:</p>
+          <a class="btn secondary" href="http://4.3.2.1" target="_blank">Open lamp setup page</a>
+        </div>
       </div>
     </div>
 
@@ -65,9 +74,15 @@
       <div class="steps">Step <b>3</b> of 3</div>
       <div class="card">
         <h2>Almost done!</h2>
-        <p>Your lamp is connecting to <b id="p3ssid">…</b>.<br>Now switch your phone back to the same WiFi network.</p>
-        <button class="btn primary" id="btnWifi3">I've switched back to my WiFi</button>
-        <p class="muted small pulse-text" id="p3status">Finding your lamp…</p>
+        <p>Your lamp is connecting to <b id="p3ssid">…</b>.</p>
+        <ol class="instructions">
+          <li>Swipe down from the top of your screen</li>
+          <li>Tap the <b>WiFi</b> icon</li>
+          <li>Connect back to <b id="p3ssid2">your home WiFi</b></li>
+          <li>Come back here</li>
+        </ol>
+        <button class="btn primary" id="btnWifi3">I've reconnected</button>
+        <p class="muted small" id="p3status"></p>
         <div id="p3fallback" class="hidden">
           <div class="sep"></div>
           <p class="muted small">Taking longer than expected.</p>

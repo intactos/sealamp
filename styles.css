@@ -263,6 +263,18 @@ input[type=range]::-webkit-slider-thumb{
 
 a{color:var(--accent);text-decoration:none}
 
+/* ── Instructions list ── */
+.instructions{
+  text-align:left;
+  margin:12px 0;
+  padding-left:22px;
+}
+.instructions li{
+  margin:6px 0;
+  font-size:.95rem;
+  line-height:1.4;
+}
+
 /* ── Pulse animation (waiting states) ── */
 .pulse-ring{
   width:40px;height:40px;

@@ -70,13 +70,37 @@ async function initDetect() {
 /* ── Page 1: Connect to lamp WiFi ── */
 function goPage1() {
   showPage(1);
-  $('p1status').textContent = 'Waiting for connection…';
+  $('p1status').textContent = '';
+  $('p1fallback').classList.add('hidden');
+  startApPolling();
+}
+
+function startApPolling() {
   pollTimer = setInterval(async () => {
     try {
       await fetchJ(AP_BASE + '/json/info', { timeout: 2000 });
       goPage2();
     } catch {}
-  }, 2000);
+  }, 2500);
+}
+
+async function checkApManually() {
+  const btn = $('btnWifi1');
+  const status = $('p1status');
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  status.textContent = '';
+
+  try {
+    await fetchJ(AP_BASE + '/json/info', { timeout: 3000 });
+    goPage2();
+  } catch {
+    btn.disabled = false;
+    btn.textContent = "I've connected";
+    status.textContent = 'Could not reach the lamp. Make sure you\'re connected to seazencity WiFi.';
+    // Show direct link fallback
+    $('p1fallback').classList.remove('hidden');
+  }
 }
 
 /* ── Page 2: Pick WiFi ── */
@@ -186,26 +210,43 @@ async function submitWifi() {
 function goPage3() {
   showPage(3);
   $('p3ssid').textContent = chosenSSID || 'your WiFi';
-  $('p3status').textContent = 'Finding your lamp…';
+  const s2 = $('p3ssid2');
+  if (s2) s2.textContent = chosenSSID || 'your home WiFi';
+  $('p3status').textContent = '';
   $('p3fallback').classList.add('hidden');
 
   let elapsed = 0;
   pollTimer = setInterval(async () => {
     elapsed += 2;
-
-    // Try mDNS
     try {
       const info = await fetchJ(MDNS_HOST + '/json/info', { timeout: 2500 });
       connectLamp('seazencity.local', info);
       return;
     } catch {}
 
-    // Show fallback after 15s
     if (elapsed >= 15) {
       $('p3status').textContent = 'Taking longer than expected…';
       $('p3fallback').classList.remove('hidden');
     }
   }, 2000);
+}
+
+async function checkLampManually() {
+  const btn = $('btnWifi3');
+  const status = $('p3status');
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  status.textContent = '';
+
+  try {
+    const info = await fetchJ(MDNS_HOST + '/json/info', { timeout: 3000 });
+    connectLamp('seazencity.local', info);
+  } catch {
+    btn.disabled = false;
+    btn.textContent = "I've reconnected";
+    status.textContent = 'Lamp not found yet. Make sure your phone is on the same WiFi as the lamp.';
+    $('p3fallback').classList.remove('hidden');
+  }
 }
 
 async function useManualIp() {
@@ -277,22 +318,9 @@ function disconnect() {
   initDetect();
 }
 
-/* ── WiFi settings nudge ── */
-function nudgeWifi(btn, msg) {
-  // Button acts as acknowledgment — user switches WiFi manually.
-  // Show a reminder hint on tap.
-  btn.textContent = msg;
-  btn.classList.remove('primary');
-  setTimeout(() => {
-    btn.classList.add('primary');
-    if (btn.id === 'btnWifi1') btn.textContent = "I've connected to seazencity";
-    else btn.textContent = "I've switched back to my WiFi";
-  }, 3000);
-}
-
 /* ── Event listeners ── */
-$('btnWifi1').addEventListener('click', () => nudgeWifi($('btnWifi1'), '↑ Swipe down → tap WiFi'));
-$('btnWifi3').addEventListener('click', () => nudgeWifi($('btnWifi3'), '↑ Swipe down → tap WiFi'));
+$('btnWifi1').addEventListener('click', checkApManually);
+$('btnWifi3').addEventListener('click', checkLampManually);
 $('btnConnect').addEventListener('click', submitWifi);
 $('btnRescan').addEventListener('click', e => { e.preventDefault(); scanNetworks(); });
 $('btnUseIp').addEventListener('click', useManualIp);
