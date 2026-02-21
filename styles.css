@@ -3,19 +3,19 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
 :root {
-  --bg:    #0b0f14;
-  --card:  #161b22;
-  --fg:    #e6edf3;
-  --muted: #8b949e;
-  --accent:#58a6ff;
-  --on:    #3fb950;
-  --off:   #f85149;
+  --bg:    #111;
+  --card:  #222;
+  --fg:    #fff;
+  --muted: #bbb;
+  --accent:#48a;
+  --on:    #2c1;
+  --off:   #c32;
   --radius:12px;
 }
 
 html{font-size:16px}
 body{
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-family:Helvetica,Verdana,sans-serif;
   background:var(--bg);
   color:var(--fg);
   min-height:100dvh;
