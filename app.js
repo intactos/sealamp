@@ -279,9 +279,8 @@ function disconnect() {
 
 /* ── Open WiFi settings helper ── */
 function openWifiSettings() {
-  // Android intent — opens WiFi settings directly
-  window.location.href = 'intent://settings/wifi#Intent;scheme=android-app;end';
-  // Fallback: nothing happens (user just switches manually)
+  // Try Android intent for WiFi settings
+  window.location.href = 'intent:#Intent;action=android.settings.WIFI_SETTINGS;end';
 }
 
 /* ── Event listeners ── */
