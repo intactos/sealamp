@@ -66,9 +66,19 @@ async function initDetect() {
 /* ── Page 1: Setup instructions ── */
 function goPage1() {
   showPage(1);
-  $('p1searching').classList.add('hidden');
-  $('p1notfound').classList.add('hidden');
-  $('p1ipblock').classList.add('hidden');
+  $('p1searching').classList.remove('hidden');
+  // Start automatic polling every 4 seconds
+  pollTimer = setInterval(autoSearchLamp, 4000);
+  autoSearchLamp(); // Try immediately
+}
+
+async function autoSearchLamp() {
+  // Try mDNS
+  try {
+    const info = await fetchJ(MDNS_HOST + '/json/info', { timeout: 3000 });
+    return connectLamp('seazencity.local', info);
+  } catch {}
+  // Keep searching...
 }
 
 /* ── Page 2: Lamp Lost (Recovery) ── */
@@ -100,46 +110,7 @@ async function retryLamp() {
   searchEl.classList.add('hidden');
 }
 
-async function findLamp() {
-  const searchEl = $('p1searching');
-  const notFound = $('p1notfound');
-  const ipBlock  = $('p1ipblock');
 
-  searchEl.classList.remove('hidden');
-  notFound.classList.add('hidden');
-  ipBlock.classList.add('hidden');
-
-  // Try mDNS
-  try {
-    const info = await fetchJ(MDNS_HOST + '/json/info', { timeout: 4000 });
-    return connectLamp('seazencity.local', info);
-  } catch {}
-
-  // Try saved host if different
-  const saved = localStorage.getItem(LS_KEY);
-  if (saved && saved !== 'seazencity.local') {
-    try {
-      const info = await fetchJ('http://' + saved + '/json/info', { timeout: 3000 });
-      return connectLamp(saved, info);
-    } catch {}
-  }
-
-  // Not found
-  searchEl.classList.add('hidden');
-  notFound.classList.remove('hidden');
-  ipBlock.classList.remove('hidden');
-}
-
-async function useManualIp() {
-  const ip = $('ipInput').value.trim();
-  if (!ip) return;
-  try {
-    const info = await fetchJ('http://' + ip + '/json/info', { timeout: 3000 });
-    connectLamp(ip, info);
-  } catch {
-    alert('Could not reach lamp at ' + ip);
-  }
-}
 
 /* ── Page 4: Controls ── */
 function connectLamp(host, info) {
@@ -199,9 +170,7 @@ function disconnect() {
 }
 
 /* ── Event listeners ── */
-$('btnFindLamp').addEventListener('click', findLamp);
 $('btnRetryLamp').addEventListener('click', retryLamp);
-$('btnUseIp').addEventListener('click', useManualIp);
 $('btnPower').addEventListener('click', togglePower);
 $('btnDisconnect').addEventListener('click', e => { e.preventDefault(); disconnect(); });
 
