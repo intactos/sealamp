@@ -28,12 +28,27 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-/* Fetch — cache-first for same-origin, network for cross-origin (lamp API) */
+/* Fetch — network-first for HTML/JS (fresh), cache-first for static (CSS/images) */
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  /* Only cache same-origin (GitHub Pages) assets */
   if (url.origin !== self.location.origin) return;
-  e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request))
-  );
+  
+  const isDynamic = url.pathname.endsWith('.html') || url.pathname.endsWith('.js');
+  
+  if (isDynamic) {
+    /* Network-first for dynamic files (always try fresh) */
+    e.respondWith(
+      fetch(e.request)
+        .then(r => {
+          if (r.ok) caches.open(CACHE).then(c => c.put(e.request, r.clone()));
+          return r;
+        })
+        .catch(() => caches.match(e.request))
+    );
+  } else {
+    /* Cache-first for static assets */
+    e.respondWith(
+      caches.match(e.request).then(r => r || fetch(e.request))
+    );
+  }
 });
