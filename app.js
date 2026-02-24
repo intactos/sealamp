@@ -46,7 +46,10 @@ async function initDetect() {
     try {
       const info = await fetchJ('http://' + saved + '/json/info', { timeout: 3000 });
       return connectLamp(saved, info);
-    } catch {}
+    } catch {
+      // Saved lamp is unavailable → recovery mode
+      return goPage2();
+    }
   }
 
   // 2. mDNS
@@ -56,7 +59,7 @@ async function initDetect() {
     return connectLamp('seazencity.local', info);
   } catch {}
 
-  // 3. Not found → setup page
+  // 3. Not found → setup page (first time)
   goPage1();
 }
 
@@ -66,6 +69,35 @@ function goPage1() {
   $('p1searching').classList.add('hidden');
   $('p1notfound').classList.add('hidden');
   $('p1ipblock').classList.add('hidden');
+}
+
+/* ── Page 2: Lamp Lost (Recovery) ── */
+function goPage2() {
+  showPage(2);
+  $('p2searching').classList.add('hidden');
+}
+
+async function retryLamp() {
+  const searchEl = $('p2searching');
+  searchEl.classList.remove('hidden');
+
+  // Try saved host
+  const saved = localStorage.getItem(LS_KEY);
+  if (saved) {
+    try {
+      const info = await fetchJ('http://' + saved + '/json/info', { timeout: 3000 });
+      return connectLamp(saved, info);
+    } catch {}
+  }
+
+  // Try mDNS
+  try {
+    const info = await fetchJ(MDNS_HOST + '/json/info', { timeout: 3000 });
+    return connectLamp('seazencity.local', info);
+  } catch {}
+
+  // Still not found
+  searchEl.classList.add('hidden');
 }
 
 async function findLamp() {
@@ -168,6 +200,7 @@ function disconnect() {
 
 /* ── Event listeners ── */
 $('btnFindLamp').addEventListener('click', findLamp);
+$('btnRetryLamp').addEventListener('click', retryLamp);
 $('btnUseIp').addEventListener('click', useManualIp);
 $('btnPower').addEventListener('click', togglePower);
 $('btnDisconnect').addEventListener('click', e => { e.preventDefault(); disconnect(); });
