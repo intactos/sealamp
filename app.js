@@ -72,6 +72,15 @@ function goPage1() {
 }
 
 async function autoSearchLamp() {
+  // Try saved host first
+  const saved = localStorage.getItem(LS_KEY);
+  if (saved) {
+    try {
+      const info = await fetchJ('http://' + saved + '/json/info', { timeout: 3000 });
+      return connectLamp(saved, info);
+    } catch {}
+  }
+
   // Try mDNS
   try {
     const info = await fetchJ(MDNS_HOST + '/json/info', { timeout: 3000 });
