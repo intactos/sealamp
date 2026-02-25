@@ -66,7 +66,6 @@ async function initDetect() {
 /* ── Page 1: Setup instructions ── */
 function goPage1() {
   showPage(1);
-  $('p1searching').classList.remove('hidden');
   // Start automatic polling every 4 seconds
   pollTimer = setInterval(autoSearchLamp, 4000);
   autoSearchLamp(); // Try immediately
