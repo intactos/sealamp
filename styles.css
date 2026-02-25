@@ -278,6 +278,12 @@ input[type=range]::-webkit-slider-thumb{
   align-items:center;
   justify-content:center;
 }
+.step img{
+  max-width:100%;
+  margin-top:8px;
+  border-radius:8px;
+  display:block;
+}
 
 .footer{
   margin-top:24px;
