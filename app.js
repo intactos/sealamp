@@ -180,9 +180,22 @@ function disconnect() {
   initDetect();
 }
 
+function openFullControls() {
+  const url = 'http://' + lampHost;
+  const win = window.open(url, '_blank');
+  if (win) {
+    win.addEventListener('load', () => {
+      if (win.document.documentElement.requestFullscreen) {
+        win.document.documentElement.requestFullscreen().catch(() => {});
+      }
+    });
+  }
+}
+
 /* ── Event listeners ── */
 $('btnRetryLamp').addEventListener('click', retryLamp);
 $('btnPower').addEventListener('click', togglePower);
+$('btnFullUI').addEventListener('click', openFullControls);
 
 $('briSlider').addEventListener('change', () => {
   sendBri($('briSlider').value);
