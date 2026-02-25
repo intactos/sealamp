@@ -129,6 +129,9 @@ function connectLamp(host, info) {
   $('lampName').textContent = (info && info.name) || 'Sea Lamp';
   $('btnFullUI').href = 'http://' + host;
   syncState();
+  
+  // Poll state every 2 seconds to keep UI in sync
+  pollTimer = setInterval(syncState, 2000);
 }
 
 async function syncState() {
@@ -180,7 +183,6 @@ function disconnect() {
 /* ── Event listeners ── */
 $('btnRetryLamp').addEventListener('click', retryLamp);
 $('btnPower').addEventListener('click', togglePower);
-$('btnDisconnect').addEventListener('click', e => { e.preventDefault(); disconnect(); });
 
 $('briSlider').addEventListener('change', () => {
   sendBri($('briSlider').value);
