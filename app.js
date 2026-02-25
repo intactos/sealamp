@@ -127,7 +127,7 @@ function connectLamp(host, info) {
   showPage(4);
 
   $('lampName').textContent = (info && info.name) || 'Sea Lamp';
-  $('btnFullUI').href = 'http://' + host;
+  $('btnFullUI').href = 'http://' + host + '/';
   syncState();
   
   // Poll state every 2 seconds to keep UI in sync
