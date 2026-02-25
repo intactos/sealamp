@@ -10,7 +10,7 @@ const LS_KEY    = 'sealamp_host';
 
 let lampHost = '';
 let lampOn   = false;
-let lampBri  = 128;
+let lampBri  = 255;
 let pollTimer = null;
 
 /* ── Helpers ── */

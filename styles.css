@@ -211,12 +211,13 @@ b{color:var(--fg)}
 input[type=range]{
   -webkit-appearance:none;
   appearance:none;
-  width:100%;
+  width:85%;
   height:6px;
   border-radius:3px;
   background:rgba(255,255,255,.12);
   outline:none;
-  margin:10px 0 4px;
+  margin:10px auto 4px;
+  display:block;
 }
 input[type=range]::-webkit-slider-thumb{
   -webkit-appearance:none;
