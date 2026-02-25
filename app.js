@@ -181,14 +181,24 @@ function disconnect() {
 }
 
 function openFullControls() {
+  if (!lampHost) {
+    alert('Lamp not connected');
+    return;
+  }
   const url = 'http://' + lampHost;
-  const win = window.open(url, '_blank');
-  if (win) {
-    win.addEventListener('load', () => {
-      if (win.document.documentElement.requestFullscreen) {
-        win.document.documentElement.requestFullscreen().catch(() => {});
-      }
-    });
+  try {
+    const win = window.open(url, '_blank');
+    if (win) {
+      win.addEventListener('load', () => {
+        if (win.document.documentElement.requestFullscreen) {
+          win.document.documentElement.requestFullscreen().catch(() => {});
+        }
+      });
+    } else {
+      alert('Could not open window. Check if popups are allowed.');
+    }
+  } catch (e) {
+    alert('Error: ' + e.message);
   }
 }
 
