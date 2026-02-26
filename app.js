@@ -129,7 +129,7 @@ function connectLamp(host, info) {
   $('lampName').textContent = (info && info.name) || 'Sea Lamp';
   $('btnFullUI').href = 'http://' + host + '/';
   syncState();
-  // initColorWheel(); // Temporarily disabled due to HTTPS->HTTP mixed content blocking
+  initColorWheel();
   
   // Initialize preset buttons
   document.querySelectorAll('.preset-btn').forEach(btn => {
@@ -266,7 +266,7 @@ function initColorWheel() {
         fetch('http://' + lampHost + '/json/state', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ "col": [rgb] })
+          body: JSON.stringify({ "seg": [{ "col": [[rgb[0], rgb[1], rgb[2]]] }] })
         }).catch(() => {});
       });
     }
