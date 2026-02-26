@@ -132,7 +132,7 @@ function connectLamp(host, info) {
   initColorWheel();
   
   // Initialize preset buttons
-  document.querySelectorAll('.preset-btn').forEach(btn => {
+  document.querySelectorAll('.preset-btn-vert').forEach(btn => {
     btn.addEventListener('click', () => {
       const preset = parseInt(btn.dataset.preset);
       if (preset) applyPreset(preset);
@@ -273,8 +273,8 @@ function initColorWheel() {
       });
       
       // Remove loading text
-      const loadingText = wheelEl.parentElement.querySelector('.muted');
-      if (loadingText) loadingText.remove();
+      const loadingText = $('wheelLoading');
+      if (loadingText) loadingText.style.display = 'none';
       
       // Send color on change
       colorWheel.on('color:change', (color) => {
@@ -288,7 +288,7 @@ function initColorWheel() {
     }
   };
   script.onerror = () => {
-    const loadingText = wheelEl.parentElement.querySelector('.muted');
+    const loadingText = $('wheelLoading');
     if (loadingText) loadingText.textContent = 'Color wheel failed to load. Use swatches below.';
   };
   document.head.appendChild(script);

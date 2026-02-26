@@ -8,7 +8,7 @@
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./icon-192.png" />
   <link rel="apple-touch-icon" href="./icon-192.png" />
-  <link rel="stylesheet" href="./styles.css?v=3.6" />
+  <link rel="stylesheet" href="./styles.css?v=3.7" />
 </head>
 <body>
   <div class="wrap">
@@ -120,27 +120,6 @@
 
       <div class="sep"></div>
 
-      <!-- Presets -->
-      <div class="presets-group">
-        <label class="muted small">Presets</label>
-        <div class="preset-buttons">
-          <button class="preset-btn" data-preset="1" title="Preset 1">1</button>
-          <button class="preset-btn" data-preset="2" title="Preset 2">2</button>
-          <button class="preset-btn" data-preset="3" title="Preset 3">3</button>
-          <button class="preset-btn" data-preset="4" title="Preset 4">4</button>
-          <button class="preset-btn" data-preset="5" title="Preset 5">5</button>
-        </div>
-      </div>
-
-      <div class="sep"></div>
-
-      <!-- Color Wheel -->
-      <div class="color-wheel-group">
-        <label class="muted small">Color Wheel</label>
-        <div id="colorWheel" class="color-wheel"></div>
-        <p class="muted small" style="margin-top:8px;opacity:0.6;">Loading color wheel...</p>
-      </div>
-
       <!-- Color Swatches -->
       <div class="swatches-group">
         <div class="swatch" data-color="#ff0000" style="background-color:#ff0000;" title="Red"></div>
@@ -152,13 +131,51 @@
       </div>
 
       <div class="sep"></div>
+
+      <!-- Color Wheel -->
+      <div class="color-wheel-group">
+        <label class="muted small">Color Wheel</label>
+        <div id="colorWheel" class="color-wheel"></div>
+        <p class="muted small" id="wheelLoading" style="margin-top:8px;opacity:0.6;">Loading...</p>
+      </div>
+
+      <div class="sep"></div>
+
+      <!-- Presets (vertical stack with names) -->
+      <div class="presets-group-vertical">
+        <label class="muted small">Presets</label>
+        <div class="preset-buttons-vertical">
+          <button class="preset-btn-vert" data-preset="1">
+            <div class="preset-num">1</div>
+            <div class="preset-name">Preset 1</div>
+          </button>
+          <button class="preset-btn-vert" data-preset="2">
+            <div class="preset-num">2</div>
+            <div class="preset-name">Preset 2</div>
+          </button>
+          <button class="preset-btn-vert" data-preset="3">
+            <div class="preset-num">3</div>
+            <div class="preset-name">Preset 3</div>
+          </button>
+          <button class="preset-btn-vert" data-preset="4">
+            <div class="preset-num">4</div>
+            <div class="preset-name">Preset 4</div>
+          </button>
+          <button class="preset-btn-vert" data-preset="5">
+            <div class="preset-num">5</div>
+            <div class="preset-name">Preset 5</div>
+          </button>
+        </div>
+      </div>
+
+      <div class="sep"></div>
       <button class="btn secondary" id="btnFullUI">Open full controls</button>
       <p class="muted small">Effects, advanced color modes and more</p>
 
-      <p class="muted small" style="text-align:center;margin-top:20px;opacity:0.5;">v3.6</p>
+      <p class="muted small" style="text-align:center;margin-top:20px;opacity:0.5;">v3.7</p>
     </div>
 
   </div>
-  <script src="./app.js?v=3.6"></script>
+  <script src="./app.js?v=3.7"></script>
 </body>
 </html>
