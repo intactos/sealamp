@@ -1,9 +1,9 @@
-/* ─── Sea Lamp PWA — app.js v2.5 ─── */
+/* ─── Sea Lamp PWA — app.js v3.0 ─── */
 /* Pages: 0 (auto-detect) → 1 (setup instructions) → 4 (controls) */
 
 'use strict';
 
-const APP_VERSION = '2.6';
+const APP_VERSION = '3.0';
 
 const MDNS_HOST = 'http://seazencity.local';
 const LS_KEY    = 'sealamp_host';
@@ -50,7 +50,7 @@ async function initDetect() {
     try {
       const info = await fetchJ('http://' + saved + '/json/info', { timeout: 3000 });
       return connectLamp(saved, info);
-    } catch {
+    } catch(e) {
       // Saved lamp is unavailable → recovery mode
       return goPage2();
     }
@@ -61,7 +61,7 @@ async function initDetect() {
   try {
     const info = await fetchJ(MDNS_HOST + '/json/info', { timeout: 3000 });
     return connectLamp('seazencity.local', info);
-  } catch {}
+  } catch(e) {}
 
   // 3. Not found → setup page (first time)
   goPage1();
@@ -85,14 +85,14 @@ async function autoSearchLamp() {
     try {
       const info = await fetchJ('http://' + saved + '/json/info', { timeout: 3000 });
       return connectLamp(saved, info);
-    } catch {}
+    } catch(e) {}
   }
 
   // Try mDNS
   try {
     const info = await fetchJ(MDNS_HOST + '/json/info', { timeout: 3000 });
     return connectLamp('seazencity.local', info);
-  } catch {}
+  } catch(e) {}
   // Keep searching...
 }
 
@@ -112,14 +112,14 @@ async function retryLamp() {
     try {
       const info = await fetchJ('http://' + saved + '/json/info', { timeout: 3000 });
       return connectLamp(saved, info);
-    } catch {}
+    } catch(e) {}
   }
 
   // Try mDNS
   try {
     const info = await fetchJ(MDNS_HOST + '/json/info', { timeout: 3000 });
     return connectLamp('seazencity.local', info);
-  } catch {}
+  } catch(e) {}
 
   // Still not found
   searchEl.classList.add('hidden');
@@ -138,8 +138,8 @@ async function connectLamp(host, info) {
 
   // Show loaded version on page FIRST so we can verify code is running
   try {
-    const verEl = document.querySelector('.muted.small[style*="opacity"]');
-    if (verEl) verEl.textContent = 'v3.20 / JS ' + APP_VERSION;
+    const verEl = document.getElementById('appVersion');
+    if (verEl) verEl.textContent = 'v3.21 / JS ' + APP_VERSION;
   } catch (e) {}
 
   // Sync state (get real color, brightness, on/off)
@@ -184,7 +184,7 @@ async function runPoll() {
   try {
     await syncState();
     await updateLEDPreview();
-  } catch {}
+  } catch(e) {}
   polling = false;
   pollId = setTimeout(runPoll, 2500);   // schedule next AFTER this one finishes
 }
@@ -211,7 +211,7 @@ async function syncState() {
         setTimeout(() => { wheelReady = true; }, 100);
       }
     }
-  } catch {}
+  } catch(e) {}
 }
 
 function updatePowerUI() {
@@ -306,7 +306,7 @@ async function togglePower() {
       updatePowerUI();
       schedulePoll(200);
     }
-  } catch { fading = false; }
+  } catch(e) { fading = false; }
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -315,7 +315,7 @@ async function sendBri(val) {
   try {
     await postState({ bri: parseInt(val, 10) });
     schedulePoll(400);
-  } catch {}
+  } catch(e) {}
 }
 
 function disconnect() {
@@ -359,7 +359,7 @@ async function applySolidColor() {
     await postState({ on: true, seg: { col: [[r, g, b]], fx: 0 } });
     await syncState();
     schedulePoll(300);      // fast preview refresh
-  } catch {}
+  } catch(e) {}
 }
 
 /* ── Preset handler ── */
@@ -368,7 +368,7 @@ async function applyPreset(num) {
     await postState({ ps: num });
     await syncState();
     schedulePoll(500);      // fast preview refresh
-  } catch {}
+  } catch(e) {}
 }
 
 /* ── Load preset names from API ── */
@@ -388,7 +388,7 @@ async function loadPresetNames() {
         }
       }
     }
-  } catch {
+  } catch(e) {
     // If loading fails, keep default "Preset N" names
   }
 }
@@ -410,7 +410,7 @@ async function setSwatch(hex) {
     await postState({ seg: [{ col: [[rgb[0], rgb[1], rgb[2]]] }] });
     await syncState();
     schedulePoll(300);      // fast preview refresh
-  } catch {}
+  } catch(e) {}
 }
 
 /* ── Color wheel init (iro.js from unpkg) ── */
