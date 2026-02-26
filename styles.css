@@ -378,10 +378,13 @@ a{color:var(--accent);text-decoration:none}
   cursor:pointer;
   border:2px solid rgba(255,255,255,.1);
   transition:all .15s,border-color .2s;
+  min-height:44px;
+  touch-action:manipulation;
 }
 .swatch:active{
   border-color:rgba(255,255,255,.8);
   transform:scale(.95);
+  box-shadow:0 0 12px currentColor;
 }
 
 /* ── Safe area (notch) ── */

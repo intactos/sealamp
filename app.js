@@ -239,7 +239,7 @@ async function setSwatch(hex) {
     await fetch('http://' + lampHost + '/json/state', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ "col": [rgb] })
+      body: JSON.stringify({ "seg": [{ "col": [[rgb[0], rgb[1], rgb[2]]] }] })
     });
     syncState();
   } catch {}
