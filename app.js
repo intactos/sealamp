@@ -1,8 +1,9 @@
-/* ─── Sea Lamp PWA — app.js v2.4 ─── */
+/* ─── Sea Lamp PWA — app.js v2.5 ─── */
 /* Pages: 0 (auto-detect) → 1 (setup instructions) → 4 (controls) */
 
 'use strict';
-console.log('[SeaLamp] app.js v2.4 loaded');
+
+const APP_VERSION = '2.5';
 
 const MDNS_HOST = 'http://seazencity.local';
 const LS_KEY    = 'sealamp_host';
@@ -14,6 +15,7 @@ let lastFx   = 0;
 let lastColor = { r: 255, g: 0, b: 0 };
 let pollId    = null;   // setTimeout id (NOT setInterval)
 let polling   = false;  // guard against overlapping polls
+let fading    = false;  // true during JS soft-fade
 
 /* ── Helpers ── */
 function $(id) { return document.getElementById(id); }
@@ -136,7 +138,10 @@ async function connectLamp(host, info) {
 
   // FIRST: sync state to get real lastColor before anything
   await syncState();
-  console.log('[SeaLamp] synced, lastColor:', lastColor, 'lampOn:', lampOn, 'bri:', lampBri);
+
+  // Show loaded version on page
+  const verEl = document.querySelector('.muted.small[style*="opacity"]');
+  if (verEl) verEl.textContent = 'v3.19 / JS ' + APP_VERSION;
 
   loadPresetNames();
   initColorWheel();   // now lastColor is real, not the default red
@@ -172,7 +177,7 @@ function schedulePoll(delayMs) {
 }
 
 async function runPoll() {
-  if (polling) return;          // guard — should never happen with setTimeout
+  if (polling || fading) return; // don't poll during fade
   polling = true;
   try {
     await syncState();
@@ -258,24 +263,51 @@ async function postState(payload) {
 }
 
 async function togglePower() {
+  if (fading) return; // ignore clicks during fade
   try {
     if (!lampOn) {
-      // Don't send bri — let WLED's toggleOnOff() restore briLast + restartRuntime
-      // tt = temporary transition: ramp brightness 0→briLast over 2 seconds
-      console.log('[SeaLamp] power ON (tt:20, no bri)');
-      await postState({ on: true, tt: 20 });
+      // ── SOFT FADE ON via JS brightness ramp ──
+      // Step 1: turn on at bri=1 (instant, keeps last effect/color)
+      fading = true;
+      await postState({ on: true, bri: 1 });
+      lampOn = true;
+      updatePowerUI();
+
+      // Step 2: ramp brightness in 8 steps over ~2.4 seconds
+      const target = parseInt($('briSlider').value, 10) || lampBri || 128;
+      const steps = [0.03, 0.08, 0.18, 0.32, 0.50, 0.70, 0.88, 1.0];
+      for (const f of steps) {
+        await sleep(300);
+        const b = Math.max(1, Math.min(255, Math.round(target * f)));
+        await postState({ bri: b });
+      }
+      fading = false;
+      lampBri = target;
+      schedulePoll(200);
     } else {
-      console.log('[SeaLamp] power OFF (tt:10)');
-      await postState({ on: false, tt: 10 });
+      // ── FADE OFF via JS brightness ramp ──
+      fading = true;
+      const cur = lampBri || 128;
+      const stepsOff = [0.7, 0.4, 0.15, 0];
+      for (const f of stepsOff) {
+        const b = Math.max(0, Math.round(cur * f));
+        if (b > 0) {
+          await postState({ bri: b });
+          await sleep(250);
+        } else {
+          await postState({ on: false });
+        }
+      }
+      fading = false;
+      lampOn = false;
+      lampBri = 0;
+      updatePowerUI();
+      schedulePoll(200);
     }
-    lampOn = !lampOn;
-    updatePowerUI();
-    // During 2s fade, poll several times for live preview
-    schedulePoll(500);
-    setTimeout(() => schedulePoll(0), 1200);
-    setTimeout(() => schedulePoll(0), 2200);
-  } catch (e) { console.error('[SeaLamp] togglePower error:', e); }
+  } catch { fading = false; }
 }
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function sendBri(val) {
   try {
