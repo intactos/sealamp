@@ -129,6 +129,7 @@ function connectLamp(host, info) {
   $('lampName').textContent = (info && info.name) || 'Sea Lamp';
   $('btnFullUI').href = 'http://' + host + '/';
   syncState();
+  loadPresetNames();
   initColorWheel();
   
   // Initialize preset buttons
@@ -229,6 +230,28 @@ async function applyPreset(num) {
     });
     syncState();
   } catch {}
+}
+
+/* ── Load preset names from API ── */
+async function loadPresetNames() {
+  try {
+    const presets = await fetchJ('http://' + lampHost + '/presets.json', { timeout: 3000 });
+    
+    // Update preset names (2-6) from API
+    for (let i = 2; i <= 6; i++) {
+      const btn = document.querySelector(`[data-preset="${i}"]`);
+      if (btn) {
+        const nameEl = btn.querySelector('.preset-name');
+        if (nameEl && presets[i]) {
+          const presetData = presets[i];
+          const presetName = presetData.n || `Preset ${i}`;
+          nameEl.textContent = presetName;
+        }
+      }
+    }
+  } catch {
+    // If loading fails, keep default "Preset N" names
+  }
 }
 
 /* ── Swatch handler ── */
