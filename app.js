@@ -3,7 +3,7 @@
 
 'use strict';
 
-const APP_VERSION = '2.5';
+const APP_VERSION = '2.6';
 
 const MDNS_HOST = 'http://seazencity.local';
 const LS_KEY    = 'sealamp_host';
@@ -136,12 +136,14 @@ async function connectLamp(host, info) {
   $('lampName').textContent = (info && info.name) || 'Sea Lamp';
   $('btnFullUI').href = 'http://' + host + '/';
 
-  // FIRST: sync state to get real lastColor before anything
-  await syncState();
+  // Show loaded version on page FIRST so we can verify code is running
+  try {
+    const verEl = document.querySelector('.muted.small[style*="opacity"]');
+    if (verEl) verEl.textContent = 'v3.20 / JS ' + APP_VERSION;
+  } catch (e) {}
 
-  // Show loaded version on page
-  const verEl = document.querySelector('.muted.small[style*="opacity"]');
-  if (verEl) verEl.textContent = 'v3.19 / JS ' + APP_VERSION;
+  // Sync state (get real color, brightness, on/off)
+  try { await syncState(); } catch (e) {}
 
   loadPresetNames();
   initColorWheel();   // now lastColor is real, not the default red
