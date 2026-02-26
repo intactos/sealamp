@@ -1,4 +1,4 @@
-/* ─── Sea Lamp PWA — app.js v1.5 ─── */
+/* ─── Sea Lamp PWA — app.js v1.6 ─── */
 /* Pages: 0 (auto-detect) → 1 (setup instructions) → 4 (controls) */
 /* Setup WiFi is done on the lamp's own page at 4.3.2.1 (HTTP, in browser). */
 /* The PWA (HTTPS) cannot fetch HTTP endpoints — mixed content blocked by Chrome. */
@@ -138,7 +138,12 @@ function connectLamp(host, info) {
   document.querySelectorAll('.preset-btn-vert').forEach(btn => {
     btn.addEventListener('click', () => {
       const preset = parseInt(btn.dataset.preset);
-      if (preset) applyPreset(preset);
+      if (preset === 1) {
+        // Solid Color button - just set current color from wheel
+        applySolidColor();
+      } else if (preset) {
+        applyPreset(preset);
+      }
     });
   });
 
@@ -181,23 +186,26 @@ async function updateLEDPreview() {
   if (!previewEl) return;
   
   try {
-    const leds = await fetchJ('http://' + lampHost + '/json/leds', { timeout: 2000 });
-    if (!Array.isArray(leds) || leds.length === 0) return;
+    const live = await fetchJ('http://' + lampHost + '/json/live', { timeout: 2000 });
+    if (!live || !Array.isArray(live.leds) || live.leds.length === 0) return;
     
     // Sample LEDs to show ~30 pixels max
-    const sampleCount = Math.min(30, leds.length);
-    const step = Math.floor(leds.length / sampleCount);
+    const sampleCount = Math.min(30, live.leds.length);
+    const step = Math.floor(live.leds.length / sampleCount);
     
     // Clear and rebuild LED divs
     previewEl.innerHTML = '';
     for (let i = 0; i < sampleCount; i++) {
       const ledIndex = i * step;
-      const led = leds[ledIndex];
-      if (!Array.isArray(led) || led.length < 3) continue;
+      const ledHex = live.leds[ledIndex];
+      if (!ledHex) continue;
+      
+      // WLED returns hex format like "FF0000" or "00FF0000" (WRGB)
+      const hex = ledHex.length > 6 ? ledHex.substring(2) : ledHex;
       
       const div = document.createElement('div');
       div.className = 'led';
-      div.style.backgroundColor = `rgb(${led[0]}, ${led[1]}, ${led[2]})`;
+      div.style.backgroundColor = '#' + hex;
       previewEl.appendChild(div);
     }
   } catch {
@@ -208,33 +216,16 @@ async function updateLEDPreview() {
 async function togglePower() {
   try {
     if (!lampOn) {
-      // Turning ON
-      const targetBri = parseInt($('briSlider').value, 10) || lampBri || 128;
-      
+      // Turning ON - use transition only for solid color mode (fx==0)
+      const payload = { on: true };
       if (lastFx === 0) {
-        // Solid color mode - fade in smoothly
-        // Step 1: Set brightness to 1 and turn on
-        await fetch('http://' + lampHost + '/json/state', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ on: true, bri: 1 })
-        });
-        
-        // Step 2: Fade up to target brightness
-        await new Promise(resolve => setTimeout(resolve, 100));
-        await fetch('http://' + lampHost + '/json/state', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bri: targetBri, transition: 50 })
-        });
-      } else {
-        // Effect mode - just turn on
-        await fetch('http://' + lampHost + '/json/state', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ on: true })
-        });
+        payload.transition = 50; // 50 * 100ms = 5s fade
       }
+      await fetch('http://' + lampHost + '/json/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
     } else {
       // Turning OFF
       await fetch('http://' + lampHost + '/json/state', {
@@ -285,27 +276,29 @@ function openFullControls() {
   }
 }
 
+/* ── Solid Color button handler ── */
+async function applySolidColor() {
+  try {
+    await fetch('http://' + lampHost + '/json/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        "on": true,
+        "seg": [{ "id": 0, "col": [[lastColor.r, lastColor.g, lastColor.b]], "fx": 0 }]
+      })
+    });
+    syncState();
+  } catch {}
+}
+
 /* ── Preset handler ── */
 async function applyPreset(num) {
   try {
-    // Solid Color mode (preset 1) - send current color
-    if (num === 1) {
-      await fetch('http://' + lampHost + '/json/state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          "on": true,
-          "seg": [{ "id": 0, "col": [[lastColor.r, lastColor.g, lastColor.b]], "fx": 0 }]
-        })
-      });
-    } else {
-      // Regular preset
-      await fetch('http://' + lampHost + '/json/state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ps: num })
-      });
-    }
+    await fetch('http://' + lampHost + '/json/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ps: num })
+    });
     syncState();
   } catch {}
 }
