@@ -1,7 +1,5 @@
-/* ─── Sea Lamp PWA — app.js v1.7 ─── */
+/* ─── Sea Lamp PWA — app.js v2.0 ─── */
 /* Pages: 0 (auto-detect) → 1 (setup instructions) → 4 (controls) */
-/* Setup WiFi is done on the lamp's own page at 4.3.2.1 (HTTP, in browser). */
-/* The PWA (HTTPS) cannot fetch HTTP endpoints — mixed content blocked by Chrome. */
 
 'use strict';
 
@@ -13,8 +11,8 @@ let lampOn   = false;
 let lampBri  = 255;
 let lastFx   = 0;
 let lastColor = { r: 255, g: 0, b: 0 };
-let pollTimer = null;
-let fadingNow = false; // true during soft-fade, pauses sync
+let pollId    = null;   // setTimeout id (NOT setInterval)
+let polling   = false;  // guard against overlapping polls
 
 /* ── Helpers ── */
 function $(id) { return document.getElementById(id); }
@@ -31,8 +29,8 @@ function fetchJ(url, opts = {}) {
 }
 
 function showPage(n) {
-  clearInterval(pollTimer);
-  pollTimer = null;
+  clearTimeout(pollId);  pollId  = null;
+  polling = false;
   document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
   $('page' + n).classList.remove('hidden');
 }
@@ -69,9 +67,12 @@ async function initDetect() {
 /* ── Page 1: Setup instructions ── */
 function goPage1() {
   showPage(1);
-  // Start automatic polling every 4 seconds
-  pollTimer = setInterval(autoSearchLamp, 4000);
-  autoSearchLamp(); // Try immediately
+  autoSearchLoop();
+}
+
+async function autoSearchLoop() {
+  await autoSearchLamp();
+  if (!lampHost) pollId = setTimeout(autoSearchLoop, 4000);
 }
 
 async function autoSearchLamp() {
@@ -155,15 +156,24 @@ function connectLamp(host, info) {
     });
   });
   
-  // Poll lamp: state + preview, sequential (don't overwhelm ESP)
-  pollTimer = setInterval(pollCycle, 2500);
-  pollCycle(); // first call immediately
+  // Start poll loop (chained setTimeout — never overlaps)
+  schedulePoll(0);
 }
 
-async function pollCycle() {
-  if (fadingNow) return; // don't poll during soft-fade
-  await syncState();
-  await updateLEDPreview();
+function schedulePoll(delayMs) {
+  clearTimeout(pollId);
+  pollId = setTimeout(runPoll, delayMs);
+}
+
+async function runPoll() {
+  if (polling) return;          // guard — should never happen with setTimeout
+  polling = true;
+  try {
+    await syncState();
+    await updateLEDPreview();
+  } catch {}
+  polling = false;
+  pollId = setTimeout(runPoll, 2500);   // schedule next AFTER this one finishes
 }
 
 async function syncState() {
@@ -192,7 +202,7 @@ async function updateLEDPreview() {
   if (!el || !lampHost) return;
   try {
     const live = await fetchJ('http://' + lampHost + '/json/live', { timeout: 3000 });
-    if (!live || !Array.isArray(live.leds) || live.leds.length === 0) return;
+    if (!live || !Array.isArray(live.leds) || live.leds.length === 0) throw 'empty';
 
     const total = live.leds.length;
     const count = Math.min(30, total);
@@ -208,7 +218,18 @@ async function updateLEDPreview() {
       d.style.backgroundColor = '#' + rgb;
       el.appendChild(d);
     }
-  } catch {}
+  } catch {
+    // Fallback: show solid bar from last known color
+    if (!el.children.length) {
+      el.innerHTML = '';
+      const d = document.createElement('div');
+      d.className = 'led';
+      d.style.backgroundColor = lampOn
+        ? 'rgb(' + lastColor.r + ',' + lastColor.g + ',' + lastColor.b + ')'
+        : '#333';
+      el.appendChild(d);
+    }
+  }
 }
 
 async function postState(payload) {
@@ -222,30 +243,16 @@ async function postState(payload) {
 async function togglePower() {
   try {
     if (!lampOn) {
-      if (lastFx === 0) {
-        // Solid color mode → soft fade via JS brightness ramp
-        fadingNow = true;
-        const target = parseInt($('briSlider').value, 10) || lampBri || 128;
-        // Step 1: turn on at minimum brightness (instant)
-        await postState({ on: true, bri: 1, transition: 0 });
-        // Step 2: ramp brightness in 7 steps over ~2.8 seconds
-        const fracs = [0.04, 0.12, 0.25, 0.42, 0.62, 0.82, 1.0];
-        for (const f of fracs) {
-          await new Promise(r => setTimeout(r, 400));
-          const bri = Math.max(1, Math.round(target * f));
-          try { await postState({ bri: bri, transition: 0 }); } catch {}
-        }
-        fadingNow = false;
-      } else {
-        // Effect mode → just turn on (WLED restores last effect)
-        await postState({ on: true });
-      }
+      // Turn on — WLED restores last state (effect + color + brightness).
+      // transition: 20 = 2-second smooth fade handled entirely by WLED.
+      await postState({ on: true, transition: 20 });
     } else {
-      // Turning OFF
-      await postState({ on: false });
+      await postState({ on: false, transition: 10 });
     }
+    // Wait a beat so WLED finishes processing, then sync UI
+    await new Promise(r => setTimeout(r, 250));
     await syncState();
-  } catch { fadingNow = false; }
+  } catch {}
 }
 
 async function sendBri(val) {
