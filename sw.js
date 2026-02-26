@@ -1,6 +1,6 @@
 /* ─── Sea Lamp PWA — sw.js ─── */
-/* Updated: 2026-02-25 04:40:00 UTC */
-const CACHE = 'sealamp-pwa-v13';
+/* Updated: 2026-02-26 04:40:00 UTC */
+const CACHE = 'sealamp-pwa-v14';
 const ASSETS = [
   './',
   './index.html',
@@ -29,7 +29,7 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-/* Fetch — network-first for HTML/JS (fresh), cache-first for static (CSS/images) */
+/* Fetch — network-first for HTML/JS (always fresh), cache-first for static */
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
@@ -37,9 +37,9 @@ self.addEventListener('fetch', e => {
   const isDynamic = url.pathname.endsWith('.html') || url.pathname.endsWith('.js');
   
   if (isDynamic) {
-    /* Network-first for dynamic files (always try fresh) */
+    /* Network-first for dynamic files (always try fresh, no cache on device storage) */
     e.respondWith(
-      fetch(e.request)
+      fetch(new Request(e.request, { cache: 'no-store' }))
         .then(r => {
           if (r.ok) caches.open(CACHE).then(c => c.put(e.request, r.clone()));
           return r;
