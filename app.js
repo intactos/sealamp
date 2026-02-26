@@ -1,4 +1,4 @@
-/* ─── Sea Lamp PWA — app.js v1.3 ─── */
+/* ─── Sea Lamp PWA — app.js v1.4 ─── */
 /* Pages: 0 (auto-detect) → 1 (setup instructions) → 4 (controls) */
 /* Setup WiFi is done on the lamp's own page at 4.3.2.1 (HTTP, in browser). */
 /* The PWA (HTTPS) cannot fetch HTTP endpoints — mixed content blocked by Chrome. */
@@ -11,6 +11,7 @@ const LS_KEY    = 'sealamp_host';
 let lampHost = '';
 let lampOn   = false;
 let lampBri  = 255;
+let lastFx   = 0;
 let lastColor = { r: 255, g: 0, b: 0 }; // Track current color for Solid Color mode
 let pollTimer = null;
 
@@ -158,6 +159,12 @@ async function syncState() {
     const s = await fetchJ('http://' + lampHost + '/json/state', { timeout: 3000 });
     lampOn  = !!s.on;
     lampBri = s.bri || 128;
+    if (Array.isArray(s.seg) && s.seg[0]) {
+      lastFx = typeof s.seg[0].fx === 'number' ? s.seg[0].fx : lastFx;
+      if (Array.isArray(s.seg[0].col) && s.seg[0].col[0] && s.seg[0].col[0].length >= 3) {
+        lastColor = { r: s.seg[0].col[0][0], g: s.seg[0].col[0][1], b: s.seg[0].col[0][2] };
+      }
+    }
     $('briSlider').value = lampBri;
     updatePowerUI();
     updatePeak(s.peak || 0);
@@ -181,33 +188,26 @@ function updatePeak(peak) {
 
 async function togglePower() {
   try {
-    const wasOn = lampOn;
-    const resp = await fetchJ('http://' + lampHost + '/json/state', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ on: 't' }),
-      timeout: 3000
-    });
-    lampOn = !!resp.on;
-    lampBri = resp.bri || lampBri;
-    
-    // Apply soft fade for Solid Color mode when turning on
-    if (!wasOn && lampOn && resp.fx === 0) {
-      // Soft fade: start from 0 to current brightness over 5 seconds (5000ms)
-      setTimeout(() => {
-        fetch('http://' + lampHost + '/json/state', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            "bri": lampBri,
-            "transition": 50  // 50 * 100ms = 5000ms = 5 seconds
-          })
-        }).catch(() => {});
-      }, 100);
+    if (!lampOn) {
+      const targetBri = parseInt($('briSlider').value, 10) || lampBri || 128;
+      const payload = { on: true };
+      if (lastFx === 0) {
+        payload.bri = targetBri;
+        payload.transition = 50; // 50 * 100ms = 5s
+      }
+      await fetch('http://' + lampHost + '/json/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } else {
+      await fetch('http://' + lampHost + '/json/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ on: false })
+      });
     }
-    
-    $('briSlider').value = lampBri;
-    updatePowerUI();
+    await syncState();
   } catch {}
 }
 
@@ -258,8 +258,8 @@ async function applyPreset(num) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          "seg": [{ "col": [[lastColor.r, lastColor.g, lastColor.b]] }],
-          "fx": 0  // No effect for Solid Color mode
+          "on": true,
+          "seg": [{ "id": 0, "col": [[lastColor.r, lastColor.g, lastColor.b]], "fx": 0 }]
         })
       });
     } else {
