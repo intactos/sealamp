@@ -8,7 +8,7 @@
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./icon-192.png" />
   <link rel="apple-touch-icon" href="./icon-192.png" />
-  <link rel="stylesheet" href="./styles.css?v=3.8" />
+  <link rel="stylesheet" href="./styles.css?v=3.9" />
 </head>
 <body>
   <div class="wrap">
@@ -118,6 +118,15 @@
         <input type="range" id="briSlider" min="1" max="255" value="255" />
       </div>
 
+      <!-- Peak Indicator -->
+      <div class="peak-group">
+        <label class="muted small">Peak</label>
+        <div class="peak-bar-container">
+          <div class="peak-bar" id="peakBar"></div>
+        </div>
+        <div class="peak-value" id="peakValue">0%</div>
+      </div>
+
       <div class="sep"></div>
 
       <!-- Color Swatches -->
@@ -134,7 +143,6 @@
 
       <!-- Color Wheel -->
       <div class="color-wheel-group">
-        <label class="muted small">Color Wheel</label>
         <div id="colorWheel" class="color-wheel"></div>
         <p class="muted small" id="wheelLoading" style="margin-top:8px;opacity:0.6;">Loading...</p>
       </div>
@@ -176,10 +184,10 @@
       <button class="btn secondary" id="btnFullUI">Open full controls</button>
       <p class="muted small">Effects, advanced color modes and more</p>
 
-      <p class="muted small" style="text-align:center;margin-top:20px;opacity:0.5;">v3.8</p>
+      <p class="muted small" style="text-align:center;margin-top:20px;opacity:0.5;">v3.9</p>
     </div>
 
   </div>
-  <script src="./app.js?v=3.8"></script>
+  <script src="./app.js?v=3.9"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-/* ─── Sea Lamp PWA — styles.css v1.1 ─── */
+/* ─── Sea Lamp PWA — styles.css v1.2 ─── */
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
@@ -208,6 +208,35 @@ b{color:var(--fg)}
   margin-bottom:2px;
 }
 
+/* ── Peak Indicator ── */
+.peak-group{
+  margin:16px 0 20px;
+}
+.peak-group label{
+  display:block;
+  margin-bottom:6px;
+}
+.peak-bar-container{
+  width:70%;
+  height:8px;
+  border-radius:4px;
+  background:rgba(255,255,255,.12);
+  margin:0 auto;
+  overflow:hidden;
+}
+.peak-bar{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg, #2c1 0%, #ffa000 50%, #c32 100%);
+  border-radius:4px;
+  transition:width .1s ease-out;
+}
+.peak-value{
+  font-size:.85rem;
+  color:var(--muted);
+  margin-top:4px;
+}
+
 input[type=range]{
   -webkit-appearance:none;
   appearance:none;
@@ -362,6 +391,8 @@ a{color:var(--accent);text-decoration:none}
   display:flex;
   flex-direction:column;
   gap:8px;
+  max-width:280px;
+  margin:0 auto;
 }
 .preset-btn-vert{
   display:flex;
@@ -396,8 +427,8 @@ a{color:var(--accent);text-decoration:none}
   flex-shrink:0;
 }
 .preset-name{
-  font-size:.8rem;
-  opacity:0.8;
+  font-size:1.1rem;
+  opacity:0.9;
 }
 .preset-btn-vert:active .preset-num{
   background:rgba(0,0,0,.3);

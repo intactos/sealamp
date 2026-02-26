@@ -1,4 +1,4 @@
-/* ─── Sea Lamp PWA — app.js v1.2 ─── */
+/* ─── Sea Lamp PWA — app.js v1.3 ─── */
 /* Pages: 0 (auto-detect) → 1 (setup instructions) → 4 (controls) */
 /* Setup WiFi is done on the lamp's own page at 4.3.2.1 (HTTP, in browser). */
 /* The PWA (HTTPS) cannot fetch HTTP endpoints — mixed content blocked by Chrome. */
@@ -11,6 +11,7 @@ const LS_KEY    = 'sealamp_host';
 let lampHost = '';
 let lampOn   = false;
 let lampBri  = 255;
+let lastColor = { r: 255, g: 0, b: 0 }; // Track current color for Solid Color mode
 let pollTimer = null;
 
 /* ── Helpers ── */
@@ -159,6 +160,7 @@ async function syncState() {
     lampBri = s.bri || 128;
     $('briSlider').value = lampBri;
     updatePowerUI();
+    updatePeak(s.peak || 0);
   } catch {}
 }
 
@@ -167,8 +169,19 @@ function updatePowerUI() {
   $('statusDot').classList.toggle('on', lampOn);
 }
 
+function updatePeak(peak) {
+  const peakBar = $('peakBar');
+  const peakVal = $('peakValue');
+  if (peakBar && peakVal) {
+    const percent = Math.min(100, Math.max(0, peak || 0));
+    peakBar.style.width = percent + '%';
+    peakVal.textContent = Math.round(percent) + '%';
+  }
+}
+
 async function togglePower() {
   try {
+    const wasOn = lampOn;
     const resp = await fetchJ('http://' + lampHost + '/json/state', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -177,6 +190,22 @@ async function togglePower() {
     });
     lampOn = !!resp.on;
     lampBri = resp.bri || lampBri;
+    
+    // Apply soft fade for Solid Color mode when turning on
+    if (!wasOn && lampOn && resp.fx === 0) {
+      // Soft fade: start from 0 to current brightness over 5 seconds (5000ms)
+      setTimeout(() => {
+        fetch('http://' + lampHost + '/json/state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            "bri": lampBri,
+            "transition": 50  // 50 * 100ms = 5000ms = 5 seconds
+          })
+        }).catch(() => {});
+      }, 100);
+    }
+    
     $('briSlider').value = lampBri;
     updatePowerUI();
   } catch {}
@@ -223,11 +252,24 @@ function openFullControls() {
 /* ── Preset handler ── */
 async function applyPreset(num) {
   try {
-    await fetch('http://' + lampHost + '/json/state', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ps: num })
-    });
+    // Solid Color mode (preset 1) - send current color
+    if (num === 1) {
+      await fetch('http://' + lampHost + '/json/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          "seg": [{ "col": [[lastColor.r, lastColor.g, lastColor.b]] }],
+          "fx": 0  // No effect for Solid Color mode
+        })
+      });
+    } else {
+      // Regular preset
+      await fetch('http://' + lampHost + '/json/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ps: num })
+      });
+    }
     syncState();
   } catch {}
 }
@@ -258,6 +300,7 @@ async function loadPresetNames() {
 async function setSwatch(hex) {
   // Convert hex to RGB
   const rgb = hex.match(/[A-Fa-f0-9]{2}/g).map(x => parseInt(x, 16));
+  lastColor = { r: rgb[0], g: rgb[1], b: rgb[2] };
   try {
     await fetch('http://' + lampHost + '/json/state', {
       method: 'POST',
@@ -302,6 +345,7 @@ function initColorWheel() {
       // Send color on change
       colorWheel.on('color:change', (color) => {
         const rgb = color.rgb;
+        lastColor = { r: rgb.r, g: rgb.g, b: rgb.b };
         fetch('http://' + lampHost + '/json/state', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
