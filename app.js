@@ -1,9 +1,9 @@
-/* ─── Sea Lamp PWA — app.js v3.0 ─── */
+/* ─── Sea Lamp PWA — app.js v3.1 ─── */
 /* Pages: 0 (auto-detect) → 1 (setup instructions) → 4 (controls) */
 
 'use strict';
 
-const APP_VERSION = '3.0';
+var APP_VERSION = '3.1';
 
 const MDNS_HOST = 'http://seazencity.local';
 const LS_KEY    = 'sealamp_host';
@@ -15,7 +15,7 @@ let lastFx   = 0;
 let lastColor = { r: 255, g: 0, b: 0 };
 let pollId    = null;   // setTimeout id (NOT setInterval)
 let polling   = false;  // guard against overlapping polls
-let fading    = false;  // true during JS soft-fade
+var fading    = false;  // true while waiting for fade confirmation
 
 /* ── Helpers ── */
 function $(id) { return document.getElementById(id); }
@@ -139,7 +139,7 @@ async function connectLamp(host, info) {
   // Show loaded version on page FIRST so we can verify code is running
   try {
     const verEl = document.getElementById('appVersion');
-    if (verEl) verEl.textContent = 'v3.21 / JS ' + APP_VERSION;
+    if (verEl) verEl.textContent = 'v3.22 / JS ' + APP_VERSION;
   } catch (e) {}
 
   // Sync state (get real color, brightness, on/off)
@@ -264,52 +264,32 @@ async function postState(payload) {
   });
 }
 
-async function togglePower() {
-  if (fading) return; // ignore clicks during fade
-  try {
-    if (!lampOn) {
-      // ── SOFT FADE ON via JS brightness ramp ──
-      // Step 1: turn on at bri=1 (instant, keeps last effect/color)
-      fading = true;
-      await postState({ on: true, bri: 1 });
-      lampOn = true;
-      updatePowerUI();
+function togglePower() {
+  if (fading) return;
+  fading = true;
 
-      // Step 2: ramp brightness in 8 steps over ~2.4 seconds
-      const target = parseInt($('briSlider').value, 10) || lampBri || 128;
-      const steps = [0.03, 0.08, 0.18, 0.32, 0.50, 0.70, 0.88, 1.0];
-      for (const f of steps) {
-        await sleep(300);
-        const b = Math.max(1, Math.min(255, Math.round(target * f)));
-        await postState({ bri: b });
-      }
-      fading = false;
-      lampBri = target;
-      schedulePoll(200);
-    } else {
-      // ── FADE OFF via JS brightness ramp ──
-      fading = true;
-      const cur = lampBri || 128;
-      const stepsOff = [0.7, 0.4, 0.15, 0];
-      for (const f of stepsOff) {
-        const b = Math.max(0, Math.round(cur * f));
-        if (b > 0) {
-          await postState({ bri: b });
-          await sleep(250);
-        } else {
-          await postState({ on: false });
-        }
-      }
-      fading = false;
-      lampOn = false;
-      lampBri = 0;
-      updatePowerUI();
-      schedulePoll(200);
-    }
-  } catch(e) { fading = false; }
+  if (!lampOn) {
+    // ── FADE ON: use WLED native transition (tt=20 = 2 seconds) ──
+    postState({ on: true, tt: 20 })
+      .then(function() {
+        lampOn = true;
+        updatePowerUI();
+        fading = false;
+        schedulePoll(2500); // poll after fade completes
+      })
+      .catch(function(e) { fading = false; });
+  } else {
+    // ── FADE OFF: use WLED native transition (tt=15 = 1.5 seconds) ──
+    postState({ on: false, tt: 15 })
+      .then(function() {
+        lampOn = false;
+        updatePowerUI();
+        fading = false;
+        schedulePoll(2000);
+      })
+      .catch(function(e) { fading = false; });
+  }
 }
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function sendBri(val) {
   try {
@@ -325,25 +305,8 @@ function disconnect() {
 }
 
 function openFullControls() {
-  if (!lampHost) {
-    alert('Lamp not connected');
-    return;
-  }
-  const url = 'http://' + lampHost;
-  try {
-    const win = window.open(url, '_blank');
-    if (win) {
-      win.addEventListener('load', () => {
-        if (win.document.documentElement.requestFullscreen) {
-          win.document.documentElement.requestFullscreen().catch(() => {});
-        }
-      });
-    } else {
-      alert('Could not open window. Check if popups are allowed.');
-    }
-  } catch (e) {
-    alert('Error: ' + e.message);
-  }
+  if (!lampHost) return;
+  window.open('http://' + lampHost, '_blank');
 }
 
 /* ── Solid Color button handler ── */
@@ -378,12 +341,12 @@ async function loadPresetNames() {
     
     // Update preset names (2-6) from API
     for (let i = 2; i <= 6; i++) {
-      const btn = document.querySelector(`[data-preset="${i}"]`);
+      var btn = document.querySelector('[data-preset="' + i + '"]');
       if (btn) {
-        const nameEl = btn.querySelector('.preset-name');
+        var nameEl = btn.querySelector('.preset-name');
         if (nameEl && presets[i]) {
-          const presetData = presets[i];
-          const presetName = presetData.n || `Preset ${i}`;
+          var presetData = presets[i];
+          var presetName = presetData.n || ('Preset ' + i);
           nameEl.textContent = presetName;
         }
       }
