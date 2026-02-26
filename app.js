@@ -131,6 +131,22 @@ function connectLamp(host, info) {
   syncState();
   // initColorWheel(); // Temporarily disabled due to HTTPS->HTTP mixed content blocking
   
+  // Initialize preset buttons
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const preset = parseInt(btn.dataset.preset);
+      if (preset) applyPreset(preset);
+    });
+  });
+
+  // Initialize color swatches
+  document.querySelectorAll('.swatch').forEach(swatch => {
+    swatch.addEventListener('click', () => {
+      const color = swatch.dataset.color;
+      if (color) setSwatch(color);
+    });
+  });
+  
   // Poll state every 2 seconds to keep UI in sync
   pollTimer = setInterval(syncState, 2000);
 }
@@ -265,22 +281,6 @@ $('btnFullUI').addEventListener('click', openFullControls);
 
 $('briSlider').addEventListener('change', () => {
   sendBri($('briSlider').value);
-});
-
-// Preset buttons
-document.querySelectorAll('.preset-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const preset = parseInt(btn.dataset.preset);
-    if (preset) applyPreset(preset);
-  });
-});
-
-// Color swatches
-document.querySelectorAll('.swatch').forEach(swatch => {
-  swatch.addEventListener('click', () => {
-    const color = swatch.dataset.color;
-    if (color) setSwatch(color);
-  });
 });
 
 /* ── Init ── */
