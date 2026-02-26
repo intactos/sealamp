@@ -129,6 +129,7 @@ function connectLamp(host, info) {
   $('lampName').textContent = (info && info.name) || 'Sea Lamp';
   $('btnFullUI').href = 'http://' + host + '/';
   syncState();
+  // initColorWheel(); // Temporarily disabled due to HTTPS->HTTP mixed content blocking
   
   // Poll state every 2 seconds to keep UI in sync
   pollTimer = setInterval(syncState, 2000);
@@ -202,6 +203,61 @@ function openFullControls() {
   }
 }
 
+/* ── Preset handler ── */
+async function applyPreset(num) {
+  try {
+    await fetch('http://' + lampHost + '/json/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ps: num })
+    });
+    syncState();
+  } catch {}
+}
+
+/* ── Swatch handler ── */
+async function setSwatch(hex) {
+  // Convert hex to RGB
+  const rgb = hex.match(/[A-Fa-f0-9]{2}/g).map(x => parseInt(x, 16));
+  try {
+    await fetch('http://' + lampHost + '/json/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ "col": [rgb] })
+    });
+    syncState();
+  } catch {}
+}
+
+/* ── Color wheel init (iro.js) ── */
+let colorWheel = null;
+function initColorWheel() {
+  if (!lampHost || colorWheel) return;
+  // Load iro.js from CDN
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/iro@1.2.2/dist/iro.min.js';
+  script.onload = () => {
+    const wheelEl = $('colorPicker');
+    if (wheelEl && window.iro) {
+      colorWheel = new iro.ColorPicker(wheelEl, {
+        width: 220,
+        color: '#ff0000',
+        borderWidth: 0,
+        layout: [{ component: iro.ui.Wheel, options: {} }]
+      });
+      colorWheel.on('color:change', (c) => {
+        const rgb = [c.rgb.r, c.rgb.g, c.rgb.b];
+        fetch('http://' + lampHost + '/json/state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ "col": [rgb] })
+        }).catch(() => {});
+      });
+    }
+  };
+  document.head.appendChild(script);
+}
+
 /* ── Event listeners ── */
 $('btnRetryLamp').addEventListener('click', retryLamp);
 $('btnPower').addEventListener('click', togglePower);
@@ -209,6 +265,22 @@ $('btnFullUI').addEventListener('click', openFullControls);
 
 $('briSlider').addEventListener('change', () => {
   sendBri($('briSlider').value);
+});
+
+// Preset buttons
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const preset = parseInt(btn.dataset.preset);
+    if (preset) applyPreset(preset);
+  });
+});
+
+// Color swatches
+document.querySelectorAll('.swatch').forEach(swatch => {
+  swatch.addEventListener('click', () => {
+    const color = swatch.dataset.color;
+    if (color) setSwatch(color);
+  });
 });
 
 /* ── Init ── */

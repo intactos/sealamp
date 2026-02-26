@@ -8,7 +8,7 @@
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./icon-192.png" />
   <link rel="apple-touch-icon" href="./icon-192.png" />
-  <link rel="stylesheet" href="./styles.css?v=2.9" />
+  <link rel="stylesheet" href="./styles.css?v=3.0" />
 </head>
 <body>
   <div class="wrap">
@@ -124,40 +124,40 @@
       <div class="presets-group">
         <label class="muted small">Presets</label>
         <div class="preset-buttons">
-          <button class="preset-btn" onclick="applyPreset(1)" title="Preset 1">1</button>
-          <button class="preset-btn" onclick="applyPreset(2)" title="Preset 2">2</button>
-          <button class="preset-btn" onclick="applyPreset(3)" title="Preset 3">3</button>
-          <button class="preset-btn" onclick="applyPreset(4)" title="Preset 4">4</button>
-          <button class="preset-btn" onclick="applyPreset(5)" title="Preset 5">5</button>
+          <button class="preset-btn" data-preset="1" title="Preset 1">1</button>
+          <button class="preset-btn" data-preset="2" title="Preset 2">2</button>
+          <button class="preset-btn" data-preset="3" title="Preset 3">3</button>
+          <button class="preset-btn" data-preset="4" title="Preset 4">4</button>
+          <button class="preset-btn" data-preset="5" title="Preset 5">5</button>
         </div>
       </div>
 
       <div class="sep"></div>
 
-      <!-- Color Wheel -->
-      <div class="color-wheel-group">
+      <!-- Color Wheel (Temporarily disabled - HTTPS/HTTP mixed content blocking) -->
+      <!-- <div class="color-wheel-group">
         <label class="muted small">Color</label>
         <div id="colorPicker" class="color-wheel"></div>
-      </div>
+      </div> -->
 
       <!-- Color Swatches -->
       <div class="swatches-group">
-        <div class="swatch" onclick="setSwatch('#ff0000')" style="background-color:#ff0000;" title="Red"></div>
-        <div class="swatch" onclick="setSwatch('#ffa000')" style="background-color:#ffa000;" title="Orange"></div>
-        <div class="swatch" onclick="setSwatch('#ffff00')" style="background-color:#ffff00;" title="Yellow"></div>
-        <div class="swatch" onclick="setSwatch('#00ff00')" style="background-color:#00ff00;" title="Green"></div>
-        <div class="swatch" onclick="setSwatch('#0000ff')" style="background-color:#0000ff;" title="Blue"></div>
-        <div class="swatch" onclick="setSwatch('#ff00ff')" style="background-color:#ff00ff;" title="Magenta"></div>
+        <div class="swatch" data-color="#ff0000" style="background-color:#ff0000;" title="Red"></div>
+        <div class="swatch" data-color="#ffa000" style="background-color:#ffa000;" title="Orange"></div>
+        <div class="swatch" data-color="#ffff00" style="background-color:#ffff00;" title="Yellow"></div>
+        <div class="swatch" data-color="#00ff00" style="background-color:#00ff00;" title="Green"></div>
+        <div class="swatch" data-color="#0000ff" style="background-color:#0000ff;" title="Blue"></div>
+        <div class="swatch" data-color="#ff00ff" style="background-color:#ff00ff;" title="Magenta"></div>
       </div>
 
       <div class="sep"></div>
       <button class="btn secondary" id="btnFullUI">Open full controls</button>
       <p class="muted small">Effects, advanced color modes and more</p>
 
-      <p class="muted small" style="text-align:center;margin-top:20px;opacity:0.5;">v2.9</p>
+      <p class="muted small" style="text-align:center;margin-top:20px;opacity:0.5;">v3.0</p>
     </div>
 
   </div>
-  <script src="./app.js?v=2.9"></script>
+  <script src="./app.js?v=3.0"></script>
 </body>
 </html>
