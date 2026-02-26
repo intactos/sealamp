@@ -1,4 +1,4 @@
-/* ─── Sea Lamp PWA — app.js v2.1 ─── */
+/* ─── Sea Lamp PWA — app.js v2.2 ─── */
 /* Pages: 0 (auto-detect) → 1 (setup instructions) → 4 (controls) */
 
 'use strict';
@@ -217,8 +217,9 @@ async function updateLEDPreview() {
       d.style.backgroundColor = '#' + rgb;
       el.appendChild(d);
     }
-  } catch {
-    // Fallback: always show a solid bar from last-known color
+  } catch (err) {
+    console.warn('LED preview /json/live failed:', err);
+    // Fallback: show solid bar from last-known color
     el.innerHTML = '';
     const c = lampOn
       ? 'rgb(' + lastColor.r + ',' + lastColor.g + ',' + lastColor.b + ')'
@@ -243,28 +244,25 @@ async function postState(payload) {
 async function togglePower() {
   try {
     if (!lampOn) {
-      // Two-step soft fade ON:
-      // 1. Turn on at minimum brightness (instant, no transition)
-      await postState({ on: true, bri: 1, transition: 0 });
-      // 2. Let WLED settle, then ramp to target brightness
-      //    tt = temporary transition (one-time), 20 = 2 seconds
+      // Single request: WLED ramps briT from 0 → target over 2 s
+      // tt = temporary transition (one-time, doesn't affect future commands)
       const target = parseInt($('briSlider').value, 10) || lampBri || 128;
-      await new Promise(r => setTimeout(r, 200));
-      await postState({ bri: target, tt: 20 });
+      await postState({ on: true, bri: target, tt: 20 });
     } else {
-      // Fade off over 1 s
-      await postState({ bri: 0, tt: 10 });
-      // After the fade finishes, actually turn off
-      await new Promise(r => setTimeout(r, 1100));
-      await postState({ on: false, transition: 0 });
+      // Fade off over 1 s, then WLED sets bri=0
+      await postState({ on: false, tt: 10 });
     }
-    await new Promise(r => setTimeout(r, 250));
-    await syncState();
+    lampOn = !lampOn;       // instant UI feedback
+    updatePowerUI();
+    schedulePoll(800);      // fast preview refresh
   } catch {}
 }
 
 async function sendBri(val) {
-  try { await postState({ bri: parseInt(val, 10) }); } catch {}
+  try {
+    await postState({ bri: parseInt(val, 10) });
+    schedulePoll(400);
+  } catch {}
 }
 
 function disconnect() {
@@ -307,6 +305,7 @@ async function applySolidColor() {
     // Use single-segment object format (simpler, no array needed)
     await postState({ on: true, seg: { col: [[r, g, b]], fx: 0 } });
     await syncState();
+    schedulePoll(300);      // fast preview refresh
   } catch {}
 }
 
@@ -315,6 +314,7 @@ async function applyPreset(num) {
   try {
     await postState({ ps: num });
     await syncState();
+    schedulePoll(500);      // fast preview refresh
   } catch {}
 }
 
@@ -353,7 +353,8 @@ async function setSwatch(hex) {
   
   try {
     await postState({ seg: [{ col: [[rgb[0], rgb[1], rgb[2]]] }] });
-    syncState();
+    await syncState();
+    schedulePoll(300);      // fast preview refresh
   } catch {}
 }
 
@@ -371,9 +372,10 @@ function initColorWheel() {
   script.crossOrigin = 'anonymous';
   script.onload = () => {
     if (window.iro && wheelEl) {
+      const initClr = 'rgb(' + lastColor.r + ',' + lastColor.g + ',' + lastColor.b + ')';
       colorWheel = new iro.ColorPicker(wheelEl, {
         width: 220,
-        color: '#ff0000',
+        color: initClr,
         borderWidth: 1,
         borderColor: '#fff',
         layout: [
@@ -388,11 +390,14 @@ function initColorWheel() {
       const loadingText = $('wheelLoading');
       if (loadingText) loadingText.style.display = 'none';
       
-      // Send color on change
+      // Send color on change (debounced preview update)
+      let wheelDebounce = null;
       colorWheel.on('color:change', (color) => {
         const rgb = color.rgb;
         lastColor = { r: rgb.r, g: rgb.g, b: rgb.b };
         postState({ seg: [{ col: [[rgb.r, rgb.g, rgb.b]] }] }).catch(() => {});
+        clearTimeout(wheelDebounce);
+        wheelDebounce = setTimeout(() => schedulePoll(200), 600);
       });
     }
   };
