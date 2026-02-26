@@ -1,4 +1,4 @@
-/* ─── Sea Lamp PWA — app.js v2.0 ─── */
+/* ─── Sea Lamp PWA — app.js v2.1 ─── */
 /* Pages: 0 (auto-detect) → 1 (setup instructions) → 4 (controls) */
 
 'use strict';
@@ -201,7 +201,7 @@ async function updateLEDPreview() {
   const el = $('ledPreview');
   if (!el || !lampHost) return;
   try {
-    const live = await fetchJ('http://' + lampHost + '/json/live', { timeout: 3000 });
+    const live = await fetchJ('http://' + lampHost + '/json/live', { timeout: 4000 });
     if (!live || !Array.isArray(live.leds) || live.leds.length === 0) throw 'empty';
 
     const total = live.leds.length;
@@ -211,7 +211,6 @@ async function updateLEDPreview() {
     el.innerHTML = '';
     for (let i = 0; i < count; i++) {
       const hex = live.leds[i * step] || '000000';
-      // WLED returns "RRGGBB" (6 chars) or "WWRRGGBB" (8 chars)
       const rgb = hex.length > 6 ? hex.substring(2) : hex;
       const d = document.createElement('div');
       d.className = 'led';
@@ -219,14 +218,15 @@ async function updateLEDPreview() {
       el.appendChild(d);
     }
   } catch {
-    // Fallback: show solid bar from last known color
-    if (!el.children.length) {
-      el.innerHTML = '';
+    // Fallback: always show a solid bar from last-known color
+    el.innerHTML = '';
+    const c = lampOn
+      ? 'rgb(' + lastColor.r + ',' + lastColor.g + ',' + lastColor.b + ')'
+      : '#333';
+    for (let i = 0; i < 20; i++) {
       const d = document.createElement('div');
       d.className = 'led';
-      d.style.backgroundColor = lampOn
-        ? 'rgb(' + lastColor.r + ',' + lastColor.g + ',' + lastColor.b + ')'
-        : '#333';
+      d.style.backgroundColor = c;
       el.appendChild(d);
     }
   }
@@ -243,13 +243,21 @@ async function postState(payload) {
 async function togglePower() {
   try {
     if (!lampOn) {
-      // Turn on — WLED restores last state (effect + color + brightness).
-      // transition: 20 = 2-second smooth fade handled entirely by WLED.
-      await postState({ on: true, transition: 20 });
+      // Two-step soft fade ON:
+      // 1. Turn on at minimum brightness (instant, no transition)
+      await postState({ on: true, bri: 1, transition: 0 });
+      // 2. Let WLED settle, then ramp to target brightness
+      //    tt = temporary transition (one-time), 20 = 2 seconds
+      const target = parseInt($('briSlider').value, 10) || lampBri || 128;
+      await new Promise(r => setTimeout(r, 200));
+      await postState({ bri: target, tt: 20 });
     } else {
-      await postState({ on: false, transition: 10 });
+      // Fade off over 1 s
+      await postState({ bri: 0, tt: 10 });
+      // After the fade finishes, actually turn off
+      await new Promise(r => setTimeout(r, 1100));
+      await postState({ on: false, transition: 0 });
     }
-    // Wait a beat so WLED finishes processing, then sync UI
     await new Promise(r => setTimeout(r, 250));
     await syncState();
   } catch {}
