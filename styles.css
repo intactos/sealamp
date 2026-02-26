@@ -348,21 +348,25 @@ a{color:var(--accent);text-decoration:none}
   color:#000
 }
 
-/* ── Color Wheel ── */
-.color-wheel-group{
-  margin-bottom:16px
+/* ── Color Picker ── */
+.color-picker-group{
+  margin-bottom:16px;
+  text-align:center;
 }
-.color-wheel-group label{
+.color-picker-group label{
   display:block;
   font-size:.8rem;
   color:var(--muted);
   margin-bottom:8px;
 }
-.color-wheel{
+#colorPicker{
   width:100%;
   max-width:220px;
-  margin:0 auto;
-  aspect-ratio:1
+  height:220px;
+  border:none;
+  border-radius:12px;
+  cursor:pointer;
+  background:transparent;
 }
 
 /* ── Swatches ── */

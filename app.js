@@ -129,7 +129,20 @@ function connectLamp(host, info) {
   $('lampName').textContent = (info && info.name) || 'Sea Lamp';
   $('btnFullUI').href = 'http://' + host + '/';
   syncState();
-  initColorWheel();
+  
+  // Initialize color picker
+  const colorPicker = $('colorPicker');
+  if (colorPicker) {
+    colorPicker.addEventListener('input', (e) => {
+      const hex = e.target.value;
+      const rgb = hex.match(/[A-Fa-f0-9]{2}/g).map(x => parseInt(x, 16));
+      fetch('http://' + lampHost + '/json/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ "seg": [{ "col": [[rgb[0], rgb[1], rgb[2]]] }] })
+      }).catch(() => {});
+    });
+  }
   
   // Initialize preset buttons
   document.querySelectorAll('.preset-btn').forEach(btn => {
@@ -243,35 +256,6 @@ async function setSwatch(hex) {
     });
     syncState();
   } catch {}
-}
-
-/* ── Color wheel init (iro.js) ── */
-let colorWheel = null;
-function initColorWheel() {
-  if (!lampHost || colorWheel) return;
-  // Load iro.js from CDN
-  const script = document.createElement('script');
-  script.src = 'https://cdn.jsdelivr.net/npm/iro@1.2.2/dist/iro.min.js';
-  script.onload = () => {
-    const wheelEl = $('colorPicker');
-    if (wheelEl && window.iro) {
-      colorWheel = new iro.ColorPicker(wheelEl, {
-        width: 220,
-        color: '#ff0000',
-        borderWidth: 0,
-        layout: [{ component: iro.ui.Wheel, options: {} }]
-      });
-      colorWheel.on('color:change', (c) => {
-        const rgb = [c.rgb.r, c.rgb.g, c.rgb.b];
-        fetch('http://' + lampHost + '/json/state', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ "seg": [{ "col": [[rgb[0], rgb[1], rgb[2]]] }] })
-        }).catch(() => {});
-      });
-    }
-  };
-  document.head.appendChild(script);
 }
 
 /* ── Event listeners ── */
