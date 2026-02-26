@@ -1,9 +1,9 @@
-/* ─── Sea Lamp PWA — app.js v3.2 ─── */
+/* ─── Sea Lamp PWA — app.js v3.3 ─── */
 /* Pages: 0 (auto-detect) → 1 (setup instructions) → 4 (controls) */
 
 'use strict';
 
-var APP_VERSION = '3.2';
+var APP_VERSION = '3.3';
 
 const MDNS_HOST = 'http://seazencity.local';
 const LS_KEY    = 'sealamp_host';
@@ -139,7 +139,7 @@ async function connectLamp(host, info) {
   // Show loaded version on page FIRST so we can verify code is running
   try {
     const verEl = document.getElementById('appVersion');
-    if (verEl) verEl.textContent = 'v3.23 / JS ' + APP_VERSION;
+    if (verEl) verEl.textContent = 'v3.24 / JS ' + APP_VERSION;
   } catch (e) {}
 
   // Sync state (get real color, brightness, on/off)
@@ -169,9 +169,8 @@ async function connectLamp(host, info) {
     });
   });
   
-  // Start poll loop (state only, lightweight) + one-shot preview
+  // Start poll loop (state only, lightweight)
   schedulePoll(0);
-  setTimeout(updateLEDPreview, 1500);  // initial preview after 1.5s
 }
 
 function schedulePoll(delayMs) {
@@ -186,7 +185,7 @@ async function runPoll() {
     await syncState();
   } catch(e) {}
   polling = false;
-  pollId = setTimeout(runPoll, 5000);   // state-only poll, lightweight
+  pollId = setTimeout(runPoll, 10000);   // lightweight state poll every 10s
 }
 
 async function syncState() {
@@ -202,6 +201,7 @@ async function syncState() {
     }
     $('briSlider').value = lampBri;
     updatePowerUI();
+    updatePreviewBar();
     // Keep color wheel in sync (won't fire input:change, only color:change which we ignore)
     if (colorWheel) {
       const wc = colorWheel.color.rgb;
@@ -219,40 +219,21 @@ function updatePowerUI() {
   $('statusDot').classList.toggle('on', lampOn);
 }
 
-async function updateLEDPreview() {
-  const el = $('ledPreview');
-  if (!el || !lampHost) return;
-  try {
-    const live = await fetchJ('http://' + lampHost + '/json/live', { timeout: 4000 });
-    if (!live || !Array.isArray(live.leds) || live.leds.length === 0) throw 'empty response';
-    console.log('[SeaLamp] /json/live OK, leds:', live.leds.length, 'first:', live.leds[0]);
-
-    const total = live.leds.length;
-    const count = Math.min(30, total);
-    const step  = Math.max(1, Math.floor(total / count));
-
-    el.innerHTML = '';
-    for (let i = 0; i < count; i++) {
-      const hex = live.leds[i * step] || '000000';
-      const rgb = hex.length > 6 ? hex.substring(2) : hex;
-      const d = document.createElement('div');
-      d.className = 'led';
-      d.style.backgroundColor = '#' + rgb;
-      el.appendChild(d);
-    }
-  } catch (err) {
-    console.warn('LED preview /json/live failed:', err);
-    // Fallback: show solid bar from last-known color
-    el.innerHTML = '';
-    const c = lampOn
-      ? 'rgb(' + lastColor.r + ',' + lastColor.g + ',' + lastColor.b + ')'
-      : '#333';
-    for (let i = 0; i < 20; i++) {
-      const d = document.createElement('div');
-      d.className = 'led';
-      d.style.backgroundColor = c;
-      el.appendChild(d);
-    }
+function updatePreviewBar() {
+  var el = $('ledPreview');
+  if (!el) return;
+  var c = lampOn
+    ? 'rgb(' + lastColor.r + ',' + lastColor.g + ',' + lastColor.b + ')'
+    : '#333';
+  // Only rebuild if color changed
+  if (el.dataset.c === c) return;
+  el.dataset.c = c;
+  el.innerHTML = '';
+  for (var i = 0; i < 20; i++) {
+    var d = document.createElement('div');
+    d.className = 'led';
+    d.style.backgroundColor = c;
+    el.appendChild(d);
   }
 }
 
@@ -276,7 +257,6 @@ function togglePower() {
         updatePowerUI();
         fading = false;
         schedulePoll(2500);
-        setTimeout(updateLEDPreview, 2200); // preview after fade
       })
       .catch(function(e) { fading = false; });
   } else {
@@ -287,7 +267,6 @@ function togglePower() {
         updatePowerUI();
         fading = false;
         schedulePoll(2000);
-        setTimeout(updateLEDPreview, 1700); // preview after fade
       })
       .catch(function(e) { fading = false; });
   }
@@ -334,7 +313,6 @@ async function applyPreset(num) {
     await postState({ ps: num });
     await syncState();
     schedulePoll(2000);
-    setTimeout(updateLEDPreview, 1000); // one-shot preview after preset loads
   } catch(e) {}
 }
 
@@ -376,8 +354,7 @@ async function setSwatch(hex) {
   try {
     await postState({ seg: [{ col: [[rgb[0], rgb[1], rgb[2]]] }] });
     await syncState();
-    schedulePoll(1000);
-    setTimeout(updateLEDPreview, 500);  // one-shot preview
+    schedulePoll(2000);
   } catch(e) {}
 }
 
