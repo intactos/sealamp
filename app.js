@@ -1,8 +1,8 @@
-/* ─── Sea Lamp PWA — app.js v2.3 ─── */
+/* ─── Sea Lamp PWA — app.js v2.4 ─── */
 /* Pages: 0 (auto-detect) → 1 (setup instructions) → 4 (controls) */
 
 'use strict';
-console.log('[SeaLamp] app.js v2.3 loaded');
+console.log('[SeaLamp] app.js v2.4 loaded');
 
 const MDNS_HOST = 'http://seazencity.local';
 const LS_KEY    = 'sealamp_host';
@@ -195,6 +195,15 @@ async function syncState() {
     }
     $('briSlider').value = lampBri;
     updatePowerUI();
+    // Keep color wheel in sync (won't fire input:change, only color:change which we ignore)
+    if (colorWheel) {
+      const wc = colorWheel.color.rgb;
+      if (wc.r !== lastColor.r || wc.g !== lastColor.g || wc.b !== lastColor.b) {
+        wheelReady = false;
+        colorWheel.color.rgb = lastColor;
+        setTimeout(() => { wheelReady = true; }, 100);
+      }
+    }
   } catch {}
 }
 
@@ -251,17 +260,20 @@ async function postState(payload) {
 async function togglePower() {
   try {
     if (!lampOn) {
-      // Single request: WLED ramps briT from 0 → target over 2 s
-      const target = parseInt($('briSlider').value, 10) || lampBri || 128;
-      console.log('[SeaLamp] power ON, target bri:', target);
-      await postState({ on: true, bri: target, tt: 20 });
+      // Don't send bri — let WLED's toggleOnOff() restore briLast + restartRuntime
+      // tt = temporary transition: ramp brightness 0→briLast over 2 seconds
+      console.log('[SeaLamp] power ON (tt:20, no bri)');
+      await postState({ on: true, tt: 20 });
     } else {
-      console.log('[SeaLamp] power OFF');
+      console.log('[SeaLamp] power OFF (tt:10)');
       await postState({ on: false, tt: 10 });
     }
     lampOn = !lampOn;
     updatePowerUI();
-    schedulePoll(800);
+    // During 2s fade, poll several times for live preview
+    schedulePoll(500);
+    setTimeout(() => schedulePoll(0), 1200);
+    setTimeout(() => schedulePoll(0), 2200);
   } catch (e) { console.error('[SeaLamp] togglePower error:', e); }
 }
 
