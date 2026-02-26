@@ -208,30 +208,6 @@ b{color:var(--fg)}
   margin-bottom:2px;
 }
 
-/* ── LED Preview Strip ── */
-.led-preview-group{
-  margin:16px 0 20px;
-}
-.led-preview-group label{
-  display:block;
-  margin-bottom:8px;
-}
-.led-preview-strip{
-  width:80%;
-  height:12px;
-  margin:0 auto;
-  display:flex;
-  border-radius:6px;
-  overflow:hidden;
-  background:#1a1a1a;
-  box-shadow:inset 0 0 8px rgba(0,0,0,.5);
-}
-.led-preview-strip .led{
-  flex:1;
-  height:100%;
-  transition:background .2s ease-out;
-}
-
 input[type=range]{
   -webkit-appearance:none;
   appearance:none;

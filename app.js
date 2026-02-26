@@ -3,7 +3,7 @@
 
 'use strict';
 
-var APP_VERSION = '3.4';
+var APP_VERSION = '3.5';
 
 const MDNS_HOST = 'http://seazencity.local';
 const LS_KEY    = 'sealamp_host';
@@ -201,7 +201,7 @@ async function syncState() {
     }
     $('briSlider').value = lampBri;
     updatePowerUI();
-    updatePreviewBar();
+
     // Keep color wheel in sync (won't fire input:change, only color:change which we ignore)
     if (colorWheel) {
       const wc = colorWheel.color.rgb;
@@ -219,23 +219,7 @@ function updatePowerUI() {
   $('statusDot').classList.toggle('on', lampOn);
 }
 
-function updatePreviewBar() {
-  var el = $('ledPreview');
-  if (!el) return;
-  var c = lampOn
-    ? 'rgb(' + lastColor.r + ',' + lastColor.g + ',' + lastColor.b + ')'
-    : '#333';
-  // Only rebuild if color changed
-  if (el.dataset.c === c) return;
-  el.dataset.c = c;
-  el.innerHTML = '';
-  for (var i = 0; i < 20; i++) {
-    var d = document.createElement('div');
-    d.className = 'led';
-    d.style.backgroundColor = c;
-    el.appendChild(d);
-  }
-}
+
 
 async function postState(payload) {
   return fetch('http://' + lampHost + '/json/state', {
@@ -303,7 +287,7 @@ async function applySolidColor() {
     await postState({ on: true, seg: { col: [[r, g, b]], fx: 0 } });
     await syncState();
     schedulePoll(1000);
-    setTimeout(updateLEDPreview, 500);  // one-shot preview
+
   } catch(e) {}
 }
 
