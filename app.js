@@ -129,20 +129,7 @@ function connectLamp(host, info) {
   $('lampName').textContent = (info && info.name) || 'Sea Lamp';
   $('btnFullUI').href = 'http://' + host + '/';
   syncState();
-  
-  // Initialize color picker
-  const colorPicker = $('colorPicker');
-  if (colorPicker) {
-    colorPicker.addEventListener('input', (e) => {
-      const hex = e.target.value;
-      const rgb = hex.match(/[A-Fa-f0-9]{2}/g).map(x => parseInt(x, 16));
-      fetch('http://' + lampHost + '/json/state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ "seg": [{ "col": [[rgb[0], rgb[1], rgb[2]]] }] })
-      }).catch(() => {});
-    });
-  }
+  initColorWheel();
   
   // Initialize preset buttons
   document.querySelectorAll('.preset-btn').forEach(btn => {
@@ -256,6 +243,55 @@ async function setSwatch(hex) {
     });
     syncState();
   } catch {}
+}
+
+/* ── Color wheel init (iro.js from unpkg) ── */
+let colorWheel = null;
+function initColorWheel() {
+  if (!lampHost || colorWheel) return;
+  
+  const wheelEl = $('colorWheel');
+  if (!wheelEl) return;
+  
+  // Load iro.js from unpkg CDN
+  const script = document.createElement('script');
+  script.src = 'https://unpkg.com/@jaames/iro@5.5.2/dist/iro.min.js';
+  script.crossOrigin = 'anonymous';
+  script.onload = () => {
+    if (window.iro && wheelEl) {
+      colorWheel = new iro.ColorPicker(wheelEl, {
+        width: 220,
+        color: '#ff0000',
+        borderWidth: 1,
+        borderColor: '#fff',
+        layout: [
+          {
+            component: iro.ui.Wheel,
+            options: {}
+          }
+        ]
+      });
+      
+      // Remove loading text
+      const loadingText = wheelEl.parentElement.querySelector('.muted');
+      if (loadingText) loadingText.remove();
+      
+      // Send color on change
+      colorWheel.on('color:change', (color) => {
+        const rgb = color.rgb;
+        fetch('http://' + lampHost + '/json/state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ "seg": [{ "col": [[rgb.r, rgb.g, rgb.b]] }] })
+        }).catch(() => {});
+      });
+    }
+  };
+  script.onerror = () => {
+    const loadingText = wheelEl.parentElement.querySelector('.muted');
+    if (loadingText) loadingText.textContent = 'Color wheel failed to load. Use swatches below.';
+  };
+  document.head.appendChild(script);
 }
 
 /* ── Event listeners ── */

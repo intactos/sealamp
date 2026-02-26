@@ -348,48 +348,22 @@ a{color:var(--accent);text-decoration:none}
   color:#000
 }
 
-/* ── Color Picker ── */
-.color-picker-group{
+/* ── Color Wheel ── */
+.color-wheel-group{
   margin-bottom:16px;
   text-align:center;
 }
-.color-picker-group label{
+.color-wheel-group label{
   display:block;
   font-size:.8rem;
   color:var(--muted);
   margin-bottom:8px;
 }
-.color-picker-wrapper{
-  position:relative;
-  display:inline-block;
-}
-#colorPicker{
+.color-wheel{
   width:220px;
   height:220px;
-  border:2px solid rgba(255,255,255,.2);
-  border-radius:12px;
-  cursor:pointer;
-  display:block;
-}
-#colorPicker::-webkit-color-swatch-wrapper{
-  padding:0;
-}
-#colorPicker::-webkit-color-swatch{
-  border:none;
-  border-radius:10px;
-}
-.picker-hint{
-  position:absolute;
-  bottom:12px;
-  left:50%;
-  transform:translateX(-50%);
-  background:rgba(0,0,0,.7);
-  color:#fff;
-  padding:6px 12px;
-  border-radius:6px;
-  font-size:.75rem;
-  pointer-events:none;
-  opacity:0.8;
+  margin:0 auto;
+  position:relative;
 }
 
 /* ── Swatches ── */

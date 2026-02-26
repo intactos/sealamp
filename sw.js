@@ -1,6 +1,6 @@
 /* ─── Sea Lamp PWA — sw.js ─── */
-/* Updated: 2026-02-26 06:15:00 UTC */
-const CACHE = 'sealamp-pwa-v20';
+/* Updated: 2026-02-26 06:25:00 UTC */
+const CACHE = 'sealamp-pwa-v21';
 const ASSETS = [
   './',
   './index.html',
