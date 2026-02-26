@@ -1,9 +1,9 @@
-/* ─── Sea Lamp PWA — app.js v3.1 ─── */
+/* ─── Sea Lamp PWA — app.js v3.2 ─── */
 /* Pages: 0 (auto-detect) → 1 (setup instructions) → 4 (controls) */
 
 'use strict';
 
-var APP_VERSION = '3.1';
+var APP_VERSION = '3.2';
 
 const MDNS_HOST = 'http://seazencity.local';
 const LS_KEY    = 'sealamp_host';
@@ -139,7 +139,7 @@ async function connectLamp(host, info) {
   // Show loaded version on page FIRST so we can verify code is running
   try {
     const verEl = document.getElementById('appVersion');
-    if (verEl) verEl.textContent = 'v3.22 / JS ' + APP_VERSION;
+    if (verEl) verEl.textContent = 'v3.23 / JS ' + APP_VERSION;
   } catch (e) {}
 
   // Sync state (get real color, brightness, on/off)
@@ -169,8 +169,9 @@ async function connectLamp(host, info) {
     });
   });
   
-  // Start poll loop (chained setTimeout — never overlaps)
+  // Start poll loop (state only, lightweight) + one-shot preview
   schedulePoll(0);
+  setTimeout(updateLEDPreview, 1500);  // initial preview after 1.5s
 }
 
 function schedulePoll(delayMs) {
@@ -179,14 +180,13 @@ function schedulePoll(delayMs) {
 }
 
 async function runPoll() {
-  if (polling || fading) return; // don't poll during fade
+  if (polling || fading) return;
   polling = true;
   try {
     await syncState();
-    await updateLEDPreview();
   } catch(e) {}
   polling = false;
-  pollId = setTimeout(runPoll, 2500);   // schedule next AFTER this one finishes
+  pollId = setTimeout(runPoll, 5000);   // state-only poll, lightweight
 }
 
 async function syncState() {
@@ -275,7 +275,8 @@ function togglePower() {
         lampOn = true;
         updatePowerUI();
         fading = false;
-        schedulePoll(2500); // poll after fade completes
+        schedulePoll(2500);
+        setTimeout(updateLEDPreview, 2200); // preview after fade
       })
       .catch(function(e) { fading = false; });
   } else {
@@ -286,6 +287,7 @@ function togglePower() {
         updatePowerUI();
         fading = false;
         schedulePoll(2000);
+        setTimeout(updateLEDPreview, 1700); // preview after fade
       })
       .catch(function(e) { fading = false; });
   }
@@ -321,7 +323,8 @@ async function applySolidColor() {
     // Use single-segment object format (simpler, no array needed)
     await postState({ on: true, seg: { col: [[r, g, b]], fx: 0 } });
     await syncState();
-    schedulePoll(300);      // fast preview refresh
+    schedulePoll(1000);
+    setTimeout(updateLEDPreview, 500);  // one-shot preview
   } catch(e) {}
 }
 
@@ -330,7 +333,8 @@ async function applyPreset(num) {
   try {
     await postState({ ps: num });
     await syncState();
-    schedulePoll(500);      // fast preview refresh
+    schedulePoll(2000);
+    setTimeout(updateLEDPreview, 1000); // one-shot preview after preset loads
   } catch(e) {}
 }
 
@@ -372,7 +376,8 @@ async function setSwatch(hex) {
   try {
     await postState({ seg: [{ col: [[rgb[0], rgb[1], rgb[2]]] }] });
     await syncState();
-    schedulePoll(300);      // fast preview refresh
+    schedulePoll(1000);
+    setTimeout(updateLEDPreview, 500);  // one-shot preview
   } catch(e) {}
 }
 
