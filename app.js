@@ -1,9 +1,9 @@
-/* ─── Sea Lamp PWA — app.js v3.3 ─── */
+/* ─── Sea Lamp PWA — app.js v3.4 ─── */
 /* Pages: 0 (auto-detect) → 1 (setup instructions) → 4 (controls) */
 
 'use strict';
 
-var APP_VERSION = '3.3';
+var APP_VERSION = '3.4';
 
 const MDNS_HOST = 'http://seazencity.local';
 const LS_KEY    = 'sealamp_host';
@@ -139,7 +139,7 @@ async function connectLamp(host, info) {
   // Show loaded version on page FIRST so we can verify code is running
   try {
     const verEl = document.getElementById('appVersion');
-    if (verEl) verEl.textContent = 'v3.24 / JS ' + APP_VERSION;
+    if (verEl) verEl.textContent = 'v3.25 / JS ' + APP_VERSION;
   } catch (e) {}
 
   // Sync state (get real color, brightness, on/off)
@@ -250,18 +250,18 @@ function togglePower() {
   fading = true;
 
   if (!lampOn) {
-    // ── FADE ON: use WLED native transition (tt=20 = 2 seconds) ──
-    postState({ on: true, tt: 20 })
+    // ── ON: WLED native transition handles smooth fade (1.5s default) ──
+    postState({ on: true })
       .then(function() {
         lampOn = true;
         updatePowerUI();
         fading = false;
-        schedulePoll(2500);
+        schedulePoll(2000);
       })
       .catch(function(e) { fading = false; });
   } else {
-    // ── FADE OFF: use WLED native transition (tt=15 = 1.5 seconds) ──
-    postState({ on: false, tt: 15 })
+    // ── OFF: WLED native transition handles smooth fade ──
+    postState({ on: false })
       .then(function() {
         lampOn = false;
         updatePowerUI();
