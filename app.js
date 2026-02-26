@@ -1,7 +1,8 @@
-/* ─── Sea Lamp PWA — app.js v2.2 ─── */
+/* ─── Sea Lamp PWA — app.js v2.3 ─── */
 /* Pages: 0 (auto-detect) → 1 (setup instructions) → 4 (controls) */
 
 'use strict';
+console.log('[SeaLamp] app.js v2.3 loaded');
 
 const MDNS_HOST = 'http://seazencity.local';
 const LS_KEY    = 'sealamp_host';
@@ -125,15 +126,20 @@ async function retryLamp() {
 
 
 /* ── Page 4: Controls ── */
-function connectLamp(host, info) {
+async function connectLamp(host, info) {
   lampHost = host;
   localStorage.setItem(LS_KEY, host);
   showPage(4);
 
   $('lampName').textContent = (info && info.name) || 'Sea Lamp';
   $('btnFullUI').href = 'http://' + host + '/';
+
+  // FIRST: sync state to get real lastColor before anything
+  await syncState();
+  console.log('[SeaLamp] synced, lastColor:', lastColor, 'lampOn:', lampOn, 'bri:', lampBri);
+
   loadPresetNames();
-  initColorWheel();
+  initColorWheel();   // now lastColor is real, not the default red
   
   // Initialize preset buttons
   document.querySelectorAll('.preset-btn-vert').forEach(btn => {
@@ -202,7 +208,8 @@ async function updateLEDPreview() {
   if (!el || !lampHost) return;
   try {
     const live = await fetchJ('http://' + lampHost + '/json/live', { timeout: 4000 });
-    if (!live || !Array.isArray(live.leds) || live.leds.length === 0) throw 'empty';
+    if (!live || !Array.isArray(live.leds) || live.leds.length === 0) throw 'empty response';
+    console.log('[SeaLamp] /json/live OK, leds:', live.leds.length, 'first:', live.leds[0]);
 
     const total = live.leds.length;
     const count = Math.min(30, total);
@@ -245,17 +252,17 @@ async function togglePower() {
   try {
     if (!lampOn) {
       // Single request: WLED ramps briT from 0 → target over 2 s
-      // tt = temporary transition (one-time, doesn't affect future commands)
       const target = parseInt($('briSlider').value, 10) || lampBri || 128;
+      console.log('[SeaLamp] power ON, target bri:', target);
       await postState({ on: true, bri: target, tt: 20 });
     } else {
-      // Fade off over 1 s, then WLED sets bri=0
+      console.log('[SeaLamp] power OFF');
       await postState({ on: false, tt: 10 });
     }
-    lampOn = !lampOn;       // instant UI feedback
+    lampOn = !lampOn;
     updatePowerUI();
-    schedulePoll(800);      // fast preview refresh
-  } catch {}
+    schedulePoll(800);
+  } catch (e) { console.error('[SeaLamp] togglePower error:', e); }
 }
 
 async function sendBri(val) {
@@ -346,9 +353,11 @@ async function setSwatch(hex) {
   const rgb = hex.match(/[A-Fa-f0-9]{2}/g).map(x => parseInt(x, 16));
   lastColor = { r: rgb[0], g: rgb[1], b: rgb[2] };
   
-  // Update color wheel to match swatch
+  // Update color wheel to match swatch (suppress its event)
   if (colorWheel) {
+    wheelReady = false;
     colorWheel.color.rgb = { r: rgb[0], g: rgb[1], b: rgb[2] };
+    setTimeout(() => { wheelReady = true; }, 200);
   }
   
   try {
@@ -360,6 +369,8 @@ async function setSwatch(hex) {
 
 /* ── Color wheel init (iro.js from unpkg) ── */
 let colorWheel = null;
+let wheelReady = false; // suppress initial color:change
+
 function initColorWheel() {
   if (!lampHost || colorWheel) return;
   
@@ -373,6 +384,7 @@ function initColorWheel() {
   script.onload = () => {
     if (window.iro && wheelEl) {
       const initClr = 'rgb(' + lastColor.r + ',' + lastColor.g + ',' + lastColor.b + ')';
+      console.log('[SeaLamp] creating color wheel with:', initClr);
       colorWheel = new iro.ColorPicker(wheelEl, {
         width: 220,
         color: initClr,
@@ -390,14 +402,29 @@ function initColorWheel() {
       const loadingText = $('wheelLoading');
       if (loadingText) loadingText.style.display = 'none';
       
-      // Send color on change (debounced preview update)
+      // Suppress the initial color:change that fires on creation
+      setTimeout(() => { wheelReady = true; }, 200);
+
+      // Send color on input (fires continuously while dragging)
       let wheelDebounce = null;
-      colorWheel.on('color:change', (color) => {
+      colorWheel.on('input:change', (color) => {
+        if (!wheelReady) return;
+        const rgb = color.rgb;
+        lastColor = { r: rgb.r, g: rgb.g, b: rgb.b };
+        // Throttled POST: only send every 150ms while dragging
+        clearTimeout(wheelDebounce);
+        wheelDebounce = setTimeout(() => {
+          postState({ seg: [{ col: [[rgb.r, rgb.g, rgb.b]] }], tt: 4 }).catch(() => {});
+        }, 150);
+      });
+
+      // Final color when user lifts finger
+      colorWheel.on('input:end', (color) => {
+        if (!wheelReady) return;
         const rgb = color.rgb;
         lastColor = { r: rgb.r, g: rgb.g, b: rgb.b };
         postState({ seg: [{ col: [[rgb.r, rgb.g, rgb.b]] }] }).catch(() => {});
-        clearTimeout(wheelDebounce);
-        wheelDebounce = setTimeout(() => schedulePoll(200), 600);
+        schedulePoll(300);
       });
     }
   };
