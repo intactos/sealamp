@@ -1,4 +1,4 @@
-/* ─── Sea Lamp PWA — app.js v1.6 ─── */
+/* ─── Sea Lamp PWA — app.js v1.7 ─── */
 /* Pages: 0 (auto-detect) → 1 (setup instructions) → 4 (controls) */
 /* Setup WiFi is done on the lamp's own page at 4.3.2.1 (HTTP, in browser). */
 /* The PWA (HTTPS) cannot fetch HTTP endpoints — mixed content blocked by Chrome. */
@@ -12,8 +12,9 @@ let lampHost = '';
 let lampOn   = false;
 let lampBri  = 255;
 let lastFx   = 0;
-let lastColor = { r: 255, g: 0, b: 0 }; // Track current color for Solid Color mode
+let lastColor = { r: 255, g: 0, b: 0 };
 let pollTimer = null;
+let fadingNow = false; // true during soft-fade, pauses sync
 
 /* ── Helpers ── */
 function $(id) { return document.getElementById(id); }
@@ -130,7 +131,6 @@ function connectLamp(host, info) {
 
   $('lampName').textContent = (info && info.name) || 'Sea Lamp';
   $('btnFullUI').href = 'http://' + host + '/';
-  syncState();
   loadPresetNames();
   initColorWheel();
   
@@ -155,8 +155,15 @@ function connectLamp(host, info) {
     });
   });
   
-  // Poll state every 2 seconds to keep UI in sync
-  pollTimer = setInterval(syncState, 2000);
+  // Poll lamp: state + preview, sequential (don't overwhelm ESP)
+  pollTimer = setInterval(pollCycle, 2500);
+  pollCycle(); // first call immediately
+}
+
+async function pollCycle() {
+  if (fadingNow) return; // don't poll during soft-fade
+  await syncState();
+  await updateLEDPreview();
 }
 
 async function syncState() {
@@ -172,7 +179,6 @@ async function syncState() {
     }
     $('briSlider').value = lampBri;
     updatePowerUI();
-    updateLEDPreview();
   } catch {}
 }
 
@@ -182,70 +188,68 @@ function updatePowerUI() {
 }
 
 async function updateLEDPreview() {
-  const previewEl = $('ledPreview');
-  if (!previewEl) return;
-  
+  const el = $('ledPreview');
+  if (!el || !lampHost) return;
   try {
-    const live = await fetchJ('http://' + lampHost + '/json/live', { timeout: 2000 });
+    const live = await fetchJ('http://' + lampHost + '/json/live', { timeout: 3000 });
     if (!live || !Array.isArray(live.leds) || live.leds.length === 0) return;
-    
-    // Sample LEDs to show ~30 pixels max
-    const sampleCount = Math.min(30, live.leds.length);
-    const step = Math.floor(live.leds.length / sampleCount);
-    
-    // Clear and rebuild LED divs
-    previewEl.innerHTML = '';
-    for (let i = 0; i < sampleCount; i++) {
-      const ledIndex = i * step;
-      const ledHex = live.leds[ledIndex];
-      if (!ledHex) continue;
-      
-      // WLED returns hex format like "FF0000" or "00FF0000" (WRGB)
-      const hex = ledHex.length > 6 ? ledHex.substring(2) : ledHex;
-      
-      const div = document.createElement('div');
-      div.className = 'led';
-      div.style.backgroundColor = '#' + hex;
-      previewEl.appendChild(div);
+
+    const total = live.leds.length;
+    const count = Math.min(30, total);
+    const step  = Math.max(1, Math.floor(total / count));
+
+    el.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+      const hex = live.leds[i * step] || '000000';
+      // WLED returns "RRGGBB" (6 chars) or "WWRRGGBB" (8 chars)
+      const rgb = hex.length > 6 ? hex.substring(2) : hex;
+      const d = document.createElement('div');
+      d.className = 'led';
+      d.style.backgroundColor = '#' + rgb;
+      el.appendChild(d);
     }
-  } catch {
-    // If fetch fails, keep previous preview
-  }
+  } catch {}
+}
+
+async function postState(payload) {
+  return fetch('http://' + lampHost + '/json/state', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
 }
 
 async function togglePower() {
   try {
     if (!lampOn) {
-      // Turning ON - use transition only for solid color mode (fx==0)
-      const payload = { on: true };
       if (lastFx === 0) {
-        payload.transition = 50; // 50 * 100ms = 5s fade
+        // Solid color mode → soft fade via JS brightness ramp
+        fadingNow = true;
+        const target = parseInt($('briSlider').value, 10) || lampBri || 128;
+        // Step 1: turn on at minimum brightness (instant)
+        await postState({ on: true, bri: 1, transition: 0 });
+        // Step 2: ramp brightness in 7 steps over ~2.8 seconds
+        const fracs = [0.04, 0.12, 0.25, 0.42, 0.62, 0.82, 1.0];
+        for (const f of fracs) {
+          await new Promise(r => setTimeout(r, 400));
+          const bri = Math.max(1, Math.round(target * f));
+          try { await postState({ bri: bri, transition: 0 }); } catch {}
+        }
+        fadingNow = false;
+      } else {
+        // Effect mode → just turn on (WLED restores last effect)
+        await postState({ on: true });
       }
-      await fetch('http://' + lampHost + '/json/state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
     } else {
       // Turning OFF
-      await fetch('http://' + lampHost + '/json/state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ on: false })
-      });
+      await postState({ on: false });
     }
     await syncState();
-  } catch {}
+  } catch { fadingNow = false; }
 }
 
 async function sendBri(val) {
-  try {
-    await fetch('http://' + lampHost + '/json/state', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bri: parseInt(val, 10) })
-    });
-  } catch {}
+  try { await postState({ bri: parseInt(val, 10) }); } catch {}
 }
 
 function disconnect() {
@@ -278,28 +282,24 @@ function openFullControls() {
 
 /* ── Solid Color button handler ── */
 async function applySolidColor() {
+  // Read the color directly from the Color Wheel (not lastColor which syncState overwrites)
+  let r = lastColor.r, g = lastColor.g, b = lastColor.b;
+  if (colorWheel) {
+    const rgb = colorWheel.color.rgb;
+    r = rgb.r; g = rgb.g; b = rgb.b;
+  }
   try {
-    await fetch('http://' + lampHost + '/json/state', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        "on": true,
-        "seg": [{ "id": 0, "col": [[lastColor.r, lastColor.g, lastColor.b]], "fx": 0 }]
-      })
-    });
-    syncState();
+    // Use single-segment object format (simpler, no array needed)
+    await postState({ on: true, seg: { col: [[r, g, b]], fx: 0 } });
+    await syncState();
   } catch {}
 }
 
 /* ── Preset handler ── */
 async function applyPreset(num) {
   try {
-    await fetch('http://' + lampHost + '/json/state', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ps: num })
-    });
-    syncState();
+    await postState({ ps: num });
+    await syncState();
   } catch {}
 }
 
@@ -337,11 +337,7 @@ async function setSwatch(hex) {
   }
   
   try {
-    await fetch('http://' + lampHost + '/json/state', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ "seg": [{ "col": [[rgb[0], rgb[1], rgb[2]]] }] })
-    });
+    await postState({ seg: [{ col: [[rgb[0], rgb[1], rgb[2]]] }] });
     syncState();
   } catch {}
 }
@@ -381,11 +377,7 @@ function initColorWheel() {
       colorWheel.on('color:change', (color) => {
         const rgb = color.rgb;
         lastColor = { r: rgb.r, g: rgb.g, b: rgb.b };
-        fetch('http://' + lampHost + '/json/state', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ "seg": [{ "col": [[rgb.r, rgb.g, rgb.b]] }] })
-        }).catch(() => {});
+        postState({ seg: [{ col: [[rgb.r, rgb.g, rgb.b]] }] }).catch(() => {});
       });
     }
   };
