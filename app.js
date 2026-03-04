@@ -165,7 +165,8 @@ async function connectLamp(host, info) {
   document.querySelectorAll('.swatch').forEach(swatch => {
     swatch.addEventListener('click', () => {
       const color = swatch.dataset.color;
-      if (color) setSwatch(color);
+      const w = parseInt(swatch.dataset.w || '0', 10);
+      if (color) setSwatch(color, w);
     });
   });
   
@@ -323,7 +324,9 @@ async function loadPresetNames() {
 }
 
 /* ── Swatch handler ── */
-async function setSwatch(hex) {
+// w = optional SK6812 white channel value (0-255). When >0 the 4th element is
+// sent so the dedicated white LED is used instead of RGB mixing.
+async function setSwatch(hex, w = 0) {
   // Convert hex to RGB
   const rgb = hex.match(/[A-Fa-f0-9]{2}/g).map(x => parseInt(x, 16));
   lastColor = { r: rgb[0], g: rgb[1], b: rgb[2] };
@@ -335,8 +338,10 @@ async function setSwatch(hex) {
     setTimeout(() => { wheelReady = true; }, 200);
   }
   
+  // For RGBW strips send 4-element array [R,G,B,W] when W channel is needed
+  const colArr = (w > 0) ? [rgb[0], rgb[1], rgb[2], w] : [rgb[0], rgb[1], rgb[2]];
   try {
-    await postState({ seg: [{ col: [[rgb[0], rgb[1], rgb[2]]] }] });
+    await postState({ seg: [{ col: [colArr] }] });
     await syncState();
     schedulePoll(2000);
   } catch(e) {}
