@@ -3,10 +3,11 @@
 
 'use strict';
 
-var APP_VERSION = '3.5';
+var APP_VERSION = '3.6';
 
 const MDNS_HOST = 'http://seazencity.local';
 const LS_KEY    = 'sealamp_host';
+const LS_LAST_IP = 'sealamp_last_ip';
 
 let lampHost = '';
 let lampOn   = false;
@@ -38,33 +39,41 @@ function showPage(n) {
   $('page' + n).classList.remove('hidden');
 }
 
+function getProbeHosts() {
+  const hosts = [];
+  const pushUnique = (h) => {
+    if (!h) return;
+    if (!hosts.includes(h)) hosts.push(h);
+  };
+
+  pushUnique(localStorage.getItem(LS_KEY));
+  pushUnique('seazencity.local');
+  pushUnique(localStorage.getItem(LS_LAST_IP));
+  return hosts;
+}
+
+async function probeLamp() {
+  const hosts = getProbeHosts();
+  for (const host of hosts) {
+    try {
+      const info = await fetchJ('http://' + host + '/json/info', { timeout: 3000 });
+      return { host, info };
+    } catch (e) {}
+  }
+  return null;
+}
+
 /* ── Page 0: Auto-detect ── */
 async function initDetect() {
   showPage(0);
   $('p0status').textContent = 'Looking for your lamp…';
 
-  // 1. Saved host
-  const saved = localStorage.getItem(LS_KEY);
-  if (saved) {
-    $('p0status').textContent = 'Reconnecting…';
-    try {
-      const info = await fetchJ('http://' + saved + '/json/info', { timeout: 3000 });
-      return connectLamp(saved, info);
-    } catch(e) {
-      // Saved lamp is unavailable → recovery mode
-      return goPage2();
-    }
-  }
+  const match = await probeLamp();
+  if (match) return connectLamp(match.host, match.info);
 
-  // 2. mDNS
-  $('p0status').textContent = 'Checking local network…';
-  try {
-    const info = await fetchJ(MDNS_HOST + '/json/info', { timeout: 3000 });
-    return connectLamp('seazencity.local', info);
-  } catch(e) {}
-
-  // 3. Not found → setup page (first time)
-  goPage1();
+  // Not found: if we've seen lamp before, show recovery; otherwise first-time setup.
+  if (localStorage.getItem(LS_KEY) || localStorage.getItem(LS_LAST_IP)) goPage2();
+  else goPage1();
 }
 
 /* ── Page 1: Setup instructions ── */
@@ -79,49 +88,29 @@ async function autoSearchLoop() {
 }
 
 async function autoSearchLamp() {
-  // Try saved host first
-  const saved = localStorage.getItem(LS_KEY);
-  if (saved) {
-    try {
-      const info = await fetchJ('http://' + saved + '/json/info', { timeout: 3000 });
-      return connectLamp(saved, info);
-    } catch(e) {}
-  }
-
-  // Try mDNS
-  try {
-    const info = await fetchJ(MDNS_HOST + '/json/info', { timeout: 3000 });
-    return connectLamp('seazencity.local', info);
-  } catch(e) {}
-  // Keep searching...
+  const match = await probeLamp();
+  if (match) return connectLamp(match.host, match.info);
 }
 
 /* ── Page 2: Lamp Lost (Recovery) ── */
 function goPage2() {
   showPage(2);
   $('p2searching').classList.add('hidden');
+  autoRecoveryLoop();
+}
+
+async function autoRecoveryLoop() {
+  if (lampHost) return;
+  const searching = $('p2searching');
+  if (searching) searching.classList.remove('hidden');
+  await autoSearchLamp();
+  if (!lampHost) pollId = setTimeout(autoRecoveryLoop, 4000);
 }
 
 async function retryLamp() {
   const searchEl = $('p2searching');
   searchEl.classList.remove('hidden');
-
-  // Try saved host
-  const saved = localStorage.getItem(LS_KEY);
-  if (saved) {
-    try {
-      const info = await fetchJ('http://' + saved + '/json/info', { timeout: 3000 });
-      return connectLamp(saved, info);
-    } catch(e) {}
-  }
-
-  // Try mDNS
-  try {
-    const info = await fetchJ(MDNS_HOST + '/json/info', { timeout: 3000 });
-    return connectLamp('seazencity.local', info);
-  } catch(e) {}
-
-  // Still not found
+  await autoSearchLamp();
   searchEl.classList.add('hidden');
 }
 
@@ -131,6 +120,7 @@ async function retryLamp() {
 async function connectLamp(host, info) {
   lampHost = host;
   localStorage.setItem(LS_KEY, host);
+  if (info && info.ip) localStorage.setItem(LS_LAST_IP, info.ip);
   showPage(4);
 
   $('lampName').textContent = (info && info.name) || 'Sea Lamp';
@@ -139,7 +129,7 @@ async function connectLamp(host, info) {
   // Show loaded version on page FIRST so we can verify code is running
   try {
     const verEl = document.getElementById('appVersion');
-    if (verEl) verEl.textContent = 'v3.25 / JS ' + APP_VERSION;
+    if (verEl) verEl.textContent = 'v' + APP_VERSION;
   } catch (e) {}
 
   // Sync state (get real color, brightness, on/off)
@@ -266,6 +256,7 @@ async function sendBri(val) {
 
 function disconnect() {
   localStorage.removeItem(LS_KEY);
+  localStorage.removeItem(LS_LAST_IP);
   lampHost = '';
   initDetect();
 }
@@ -422,6 +413,14 @@ $('btnFullUI').addEventListener('click', openFullControls);
 
 $('briSlider').addEventListener('change', () => {
   sendBri($('briSlider').value);
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !lampHost) initDetect();
+});
+
+window.addEventListener('online', () => {
+  if (!lampHost) initDetect();
 });
 
 /* ── Init ── */
